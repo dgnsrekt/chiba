@@ -9,8 +9,10 @@ Same UI, same natural-language add, same CLI — but it reads and writes
 `- [ ]` checkboxes in a real markdown file, and it never destroys the headings,
 prose, or code fences around them.
 
+Not released yet — private while it gets a real shakedown. Build from a clone:
+
 ```sh
-cargo install --git https://github.com/dgnsrekt/chiba
+cargo install --path .
 ```
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](#license)

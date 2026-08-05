@@ -102,8 +102,20 @@ pub fn detect_kind(exe: &Path) -> InstallKind {
 /// one message — `Some(tag)` if a cached or freshly-fetched tag is available,
 /// otherwise `None`. The receiver is dropped when the thread exits, so a
 /// disconnect on `try_recv` means "give up, nothing's coming".
+/// Whether any release has been published yet.
+///
+/// While the repo is private with no tagged releases, the background check can
+/// only ever 404 — once an hour, forever, thanks to the negative cache. Flip
+/// this to `true` alongside the first public release; `chiba update` still
+/// prints upgrade instructions on demand either way.
+const RELEASES_PUBLISHED: bool = false;
+
 pub fn spawn_check() -> Receiver<Option<String>> {
     let (tx, rx) = mpsc::sync_channel::<Option<String>>(1);
+    if !RELEASES_PUBLISHED {
+        let _ = tx.send(None);
+        return rx;
+    }
     thread::spawn(move || {
         let result = check_for_update();
         let _ = tx.send(result);
