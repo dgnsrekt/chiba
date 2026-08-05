@@ -614,7 +614,7 @@ fn cmd_migrate(cmd: &str, pos: &[String], force: bool, dry_run: bool) -> i32 {
                 Direction::Import => "todo.txt",
                 Direction::Eject => "todo.md",
             };
-            println!("nothing to do — no {what} in {}", dir.display());
+            println!("nothing to do — no {what} in {}", describe(&dir));
             return 0;
         }
         Err(e @ Error::Ambiguous) => {
@@ -661,7 +661,7 @@ fn cmd_migrate(cmd: &str, pos: &[String], force: bool, dry_run: bool) -> i32 {
         return err(e);
     }
     let n = plan.tasks();
-    println!("\n{verb} {n} {} in {}", plural(n, "task"), dir.display());
+    println!("\n{verb} {n} {} in {}", plural(n, "task"), describe(&dir));
     match direction {
         // Import is provably reversible, so say so — this is the whole reason
         // to trust an operation that renames the user's files.

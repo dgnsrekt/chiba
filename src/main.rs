@@ -163,8 +163,12 @@ fn main() -> Result<()> {
     // alt-screen. Read it back from the app: the welcome prompt may have
     // rebound to the sample. Skip the line if the user quit the welcome
     // prompt without choosing — no file was opened.
+    //
+    // Separated with `·` rather than `chiba:` — that prefix belongs to error
+    // messages, and inherited as-is this line read like a failure on every
+    // clean exit.
     if app_state.mode != Mode::Welcome {
-        eprintln!("chiba: {}", app_state.file_path.display());
+        eprintln!("chiba · {}", app_state.file_path.display());
     }
     result
 }
