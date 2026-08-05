@@ -2,7 +2,7 @@
 source: tests/snapshots.rs
 expression: buffer_to_text(&buf)
 ---
- FILTERS                   ▶▮◀ /tmp/chiba-snapshot.md  •  15 tasks DETAIL                           
+ FILTERS                   ▀▚ /tmp/chiba-snapshot.md  •  15 tasks  DETAIL                           
                                                                                                     
  PROJECTS                  (2)  PRIORITY A  ────────────────────── priority  (A)                    
    +work             4      1 [x] ▸ (A) Finish Q2 board deck +work created   2026-05-01             

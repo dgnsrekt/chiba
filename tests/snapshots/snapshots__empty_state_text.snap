@@ -2,7 +2,7 @@
 source: tests/snapshots.rs
 expression: buffer_to_text(&buf)
 ---
- ▶▮◀ /tmp/chiba-snapshot.md  •  0 tasks  •  sort:priority                                           
+ ▀▚ /tmp/chiba-snapshot.md  •  0 tasks  •  sort:priority                                            
                                                                                                     
                                                                                                     
                                                                                                     
@@ -11,11 +11,11 @@ expression: buffer_to_text(&buf)
                                                                                                     
                                                                                                     
                       ┌ chiba ───────────────────────────────────────────────┐                      
-                      │                    ██          ██                    │                      
-                      │                    ████  ██  ████                    │                      
-                      │                    ██████████████                    │                      
-                      │                    ████  ██  ████                    │                      
-                      │                    ██          ██                    │                      
+                      │                    ▄████▄                            │                      
+                      │                    ▀████▀▄                           │                      
+                      │                      ▀▀   ▀▄                         │                      
+                      │                         ▀▀▀ ▀▄                       │                      
+                      │                               ▀▄                     │                      
                       │                                                      │                      
                       │  no tasks yet — let's get started                    │                      
                       │                                                      │                      

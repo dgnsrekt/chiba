@@ -2,7 +2,7 @@
 source: tests/snapshots.rs
 expression: buffer_to_styled(&buf)
 ---
-{bg=#1f232b} {/}{fg=#8aa9c9 bg=#1f232b}▶{/}{fg=#e07a7a bg=#1f232b}▮{/}{fg=#8aa9c9 bg=#1f232b}◀{/}{bg=#1f232b} {/}{fg=#c8ccd4 bg=#1f232b mod=bold}settings{/}{fg=#6b7280 bg=#1f232b}  •  19 tasks  •  {/}{fg=#8aa9c9 bg=#1f232b}sort:priority{/}{bg=#1f232b}                                                        {/}
+{bg=#1f232b} {/}{fg=#e07a7a bg=#1f232b}▀{/}{fg=#8aa9c9 bg=#1f232b}▚{/}{bg=#1f232b} {/}{fg=#c8ccd4 bg=#1f232b mod=bold}settings{/}{fg=#6b7280 bg=#1f232b}  •  19 tasks  •  {/}{fg=#8aa9c9 bg=#1f232b}sort:priority{/}{bg=#1f232b}                                                         {/}
 {bg=#1a1d23}                                                                                                    {/}
 {fg=#c8ccd4 bg=#1a1d23} {/}{fg=#8aa9c9 bg=#1a1d23 mod=bold}FILES{/}{fg=#c8ccd4 bg=#1a1d23}                                                                                              {/}
 {fg=#c8ccd4 bg=#1a1d23}   todo file                   {/}{fg=#6b7280 bg=#1a1d23}/tmp/chiba-snapshot.md{/}{fg=#c8ccd4 bg=#1a1d23}                                               {/}

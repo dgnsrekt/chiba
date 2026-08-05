@@ -34,14 +34,14 @@ pub struct HeaderProps<'a> {
 }
 
 pub fn render(frame: &mut Frame, area: Rect, theme: &Theme, props: HeaderProps<'_>) {
-    // Mini cell-bowtie at one-row scale: two triangles flanking a block
-    // cursor knot. Same body+knot+body structure and palette as the larger
-    // mark used in the empty state and help overlay.
+    // The thrown rose at one-row scale: a bloom over a trailing stem, in the
+    // two cells the header can spare. Block Elements only — the same glyph
+    // family the full mark in `logo` uses, and the safest bet for font
+    // coverage in a terminal (a florette like U+273F is widely missing).
     let mut spans: Vec<Span> = vec![
         Span::raw(" "),
-        Span::styled("▶", Style::default().fg(theme.accent)),
-        Span::styled("▮", Style::default().fg(theme.pri_a)),
-        Span::styled("◀", Style::default().fg(theme.accent)),
+        Span::styled("▀", Style::default().fg(theme.pri_a)),
+        Span::styled("▚", Style::default().fg(theme.accent)),
         Span::raw(" "),
     ];
     if let Some(t) = props.title {

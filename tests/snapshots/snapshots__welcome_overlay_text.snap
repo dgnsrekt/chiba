@@ -2,7 +2,7 @@
 source: tests/snapshots.rs
 expression: buffer_to_text(&buf)
 ---
- FILTERS                   ▶▮◀ /tmp/chiba-snapshot.md  •  0 tasks  DETAIL                           
+ FILTERS                   ▀▚ /tmp/chiba-snapshot.md  •  0 tasks   DETAIL                           
                                                                                                     
  PROJECTS                                                          (no task)                        
    tag with +project                                                                                
@@ -11,11 +11,11 @@ expression: buffer_to_text(&buf)
    tag with @context                                                                                
                                                                                                     
                       ┌ chiba · welcome ─────────────────────────────────────┐                      
-                      │                    ██          ██                    │                      
-                      │                    ████  ██  ████                    │                      
-                      │                    ██████████████                    │                      
-                      │                    ████  ██  ████                    │                      
-                      │                    ██          ██                    │                      
+                      │                    ▄████▄                            │                      
+                      │                    ▀████▀▄                           │                      
+                      │                      ▀▀   ▀▄                         │                      
+                      │                         ▀▀▀ ▀▄                       │                      
+                      │                               ▀▄                     │                      
                       │                                                      │                      
                       │  no todo.txt in this folder yet                      │                      
                       │                                                      │                      

@@ -2,7 +2,7 @@
 source: tests/snapshots.rs
 expression: buffer_to_text(&buf)
 ---
- ▶▮◀ settings  •  19 tasks  •  sort:priority                                                        
+ ▀▚ settings  •  19 tasks  •  sort:priority                                                         
                                                                                                     
  FILES                                                                                              
    todo file                   /tmp/chiba-snapshot.md                                               

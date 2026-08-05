@@ -39,7 +39,7 @@ only the file format differs.
 
 | | |
 | --- | --- |
-| **Empty state** • cell-bowtie mark and quick-start when the file has no tasks | ![empty](docs/screenshots/empty.svg) |
+| **Empty state** • thrown-rose mark and quick-start when the file has no tasks | ![empty](docs/screenshots/empty.svg) |
 | **List** • list of todos, optionally grouped | ![empty](docs/screenshots/list.svg) |
 | **Archive** • completed tasks grouped by completion date | ![archive](docs/screenshots/archive.svg) |
 | **Filter sidebar active** • `fp` cycles projects with j/k, `fc` cycles contexts; saved searches list under a **SAVED** heading with live match counts | ![filter](docs/screenshots/filter.svg) |
@@ -50,8 +50,9 @@ only the file format differs.
     <summary>How to generate the screenshots and demo</summary>
     <p>The screenshots in the table above are checked-in SVGs. Regenerate them with:</p>
     <pre>mise run screenshots</pre>
-    <p>The hero GIF at the top is recorded with <a href="https://github.com/charmbracelet/vhs">vhs</a> from <code>docs/demo.tape</code>. Regenerate it with:</p>
+    <p>A demo GIF can be recorded with <a href="https://github.com/charmbracelet/vhs">vhs</a> from <code>docs/demo.tape</code>:</p>
     <pre>mise run demo</pre>
+    <p>chiba ships without one — upstream's showed the bowtie and a todo.txt file, so it was dropped rather than left to mislead.</p>
 </details>
 
 ## Themes

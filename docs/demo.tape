@@ -2,7 +2,7 @@
 #
 #   vhs docs/demo.tape  →  docs/demo.gif
 #
-# Four scenes on an empty todo.txt:
+# Four scenes on an empty todo.md:
 #   1. Empty state
 #   2. Natural-language add
 #   3. Slash-command metadata picker
@@ -22,17 +22,17 @@ Set Shell "bash"
 # starts from default prefs, regardless of the user's local config. Hidden so
 # the recording opens directly into the TUI.
 Hide
-Type "rm -rf /tmp/tuxedo-demo-cfg && mkdir -p /tmp/tuxedo-demo-cfg && rm -f /tmp/tuxedo-demo.txt /tmp/tuxedo-demo.done.txt && touch /tmp/tuxedo-demo.txt && export TUXEDO_NO_UPDATE_CHECK=1 XDG_CONFIG_HOME=/tmp/tuxedo-demo-cfg && clear"
+Type "rm -rf /tmp/chiba-demo-cfg && mkdir -p /tmp/chiba-demo-cfg && rm -f /tmp/chiba-demo.md /tmp/chiba-demo.done.md && touch /tmp/chiba-demo.md && export CHIBA_NO_UPDATE_CHECK=1 XDG_CONFIG_HOME=/tmp/chiba-demo-cfg && clear"
 Enter
 Show
 
-Type "./target/release/tuxedo /tmp/tuxedo-demo.txt"
+Type "./target/release/chiba /tmp/chiba-demo.md"
 Enter
 
 # 1. Empty state — bowtie logo + quickstart panel.
 Sleep 2500ms
 
-# 2. Natural-language add — prose rewrites to canonical todo.txt on the first
+# 2. Natural-language add — prose rewrites to canonical form on the first
 # Enter, the second Enter saves.
 Type "n"
 Sleep 700ms

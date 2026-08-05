@@ -2,7 +2,7 @@
 source: tests/snapshots.rs
 expression: buffer_to_text(&buf)
 ---
- FILTERS                   ▶▮◀ /tmp/chiba-snapshot.md  •  3 tasks  DETAIL                           
+ FILTERS                   ▀▚ /tmp/chiba-snapshot.md  •  3 tasks   DETAIL                           
                                                                                                     
  PROJECTS                  (1)  PRIORITY A  ────────────────────── priority  (A)                    
    tag with +project        1 ▸ (A) Buy milk                       created   —                      

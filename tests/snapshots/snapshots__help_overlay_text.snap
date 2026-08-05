@@ -2,7 +2,7 @@
 source: tests/snapshots.rs
 expression: buffer_to_text(&buf)
 ---
- FILTERS                   ▶▮◀ /tmp/chiba-snapshot.md  •  15 tasks DETAIL                           
+ FILTERS                   ▀▚ /tmp/chiba-snapshot.md  •  15 tasks  DETAIL                           
      ┌ chiba · help ──────────────────────────────────────────────────────────────────────────┐     
  PROJ│  NAVIGATION                                  VIEW                                      │     
    +w│    j / ↓             next task                 /                 fuzzy search          │     
