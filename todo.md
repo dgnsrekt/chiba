@@ -16,6 +16,5 @@ Inherited from tuxedo, plus the chiba-flat work. Eat your own dog food.
 - [ ] (B) 2026-08-05 Direction-B hedges: sort-as-view and archive_mode in_place — see issue #1 +chiba @dev
 - [ ] (C) 2026-08-05 Decide priority rendering: keep (A) or offer Obsidian Tasks emoji +chiba @dev
 - [ ] (C) 2026-08-05 Configurable bullet for newly created tasks +chiba @dev
-- [ ] (C) 2026-08-05 Welcome screen offers import when a todo.txt is present, instead of exiting +chiba @dev
 - [ ] (C) 2026-08-05 Fold migration state diagnosis into `chiba doctor` +chiba @dev
 - [ ] 2026-08-05 Union merge for the ambiguous state, if anyone actually asks for it +chiba @dev

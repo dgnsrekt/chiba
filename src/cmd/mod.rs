@@ -156,6 +156,14 @@ pub fn run(argv: &[String]) -> Result<Option<i32>> {
 
 /// Stop before touching a directory that holds a `todo.txt` and no `todo.md`.
 /// Returns an exit code when the caller must not proceed.
+fn describe(dir: &std::path::Path) -> String {
+    match dir.canonicalize() {
+        Ok(p) => p.display().to_string(),
+        Err(_) if dir.as_os_str() == "." => "this folder".to_string(),
+        Err(_) => dir.display().to_string(),
+    }
+}
+
 fn refuse_unmigrated_dir() -> Option<i32> {
     let dir = crate::cli::resolve_dir();
     if crate::migrate::state(&dir) != crate::migrate::State::TodoTxt {
@@ -163,7 +171,7 @@ fn refuse_unmigrated_dir() -> Option<i32> {
     }
     eprintln!(
         "chiba: {} holds a todo.txt and no todo.md — chiba can't read it as-is.",
-        dir.display()
+        describe(&dir)
     );
     eprintln!("chiba: run `chiba migrate --dry-run` to see the plan, then `chiba migrate`.");
     eprintln!("chiba: (or point chiba elsewhere with $CHIBA_FILE.)");
@@ -181,7 +189,7 @@ fn warn_if_ambiguous() {
     eprintln!(
         "chiba: {} has both todo.md and todo.txt. Using todo.md; the todo.txt is ignored \
          and will drift.",
-        dir.display()
+        describe(&dir)
     );
     eprintln!("chiba: run `chiba migrate` for a breakdown of the difference.");
 }

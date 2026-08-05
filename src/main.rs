@@ -22,6 +22,16 @@ use chiba::{clipboard, todo, ui, update};
 
 const EVENT_POLL: Duration = Duration::from_millis(250);
 
+/// A directory as worth printing to a human: the resolved absolute path, or
+/// "this folder" when we'd otherwise emit a bare `.`.
+fn describe(dir: &std::path::Path) -> String {
+    match dir.canonicalize() {
+        Ok(p) => p.display().to_string(),
+        Err(_) if dir.as_os_str() == "." => "this folder".to_string(),
+        Err(_) => dir.display().to_string(),
+    }
+}
+
 fn main() -> Result<()> {
     let argv: Vec<String> = std::env::args().skip(1).collect();
     // A recognized subcommand (possibly preceded by `-f`/`--json`) runs the
@@ -59,7 +69,7 @@ fn main() -> Result<()> {
             if arg.is_none() {
                 let dir = cli::resolve_dir();
                 if chiba::migrate::state(&dir) == chiba::migrate::State::TodoTxt {
-                    eprintln!("chiba: {} holds a todo.txt and no todo.md.", dir.display());
+                    eprintln!("chiba: {} holds a todo.txt and no todo.md.", describe(&dir));
                     eprintln!();
                     eprintln!("  chiba migrate --dry-run    see what would change");
                     eprintln!("  chiba migrate              convert todo/done/inbox to markdown");
