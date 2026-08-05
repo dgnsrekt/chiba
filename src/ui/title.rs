@@ -162,10 +162,10 @@ mod tests {
     #[test]
     fn shows_relative_path_without_prefix() {
         let title = terminal_title(
-            Path::new("notes/todo.txt"),
+            Path::new("notes/todo.md"),
             Some(Path::new("/Users/m")),
             DEFAULT_BUDGET,
         );
-        assert_eq!(title, "chiba notes/todo.txt");
+        assert_eq!(title, "chiba notes/todo.md");
     }
 }

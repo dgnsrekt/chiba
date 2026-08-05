@@ -1,11 +1,11 @@
-//! Sibling `inbox.txt` capture flow.
+//! Sibling `inbox.md` capture flow.
 //!
 //! External producers (shell appends, iOS Shortcuts writing to a sync
 //! folder, `chiba serve`'s POST handler) drop one task per line into a
-//! sibling `inbox.txt`. The running TUI drains it on each external-change
+//! sibling `inbox.md`. The running TUI drains it on each external-change
 //! poll (~250 ms): each line is run through the natural-language
 //! pipeline, given a creation date if missing, validated, and merged
-//! into `todo.txt`. See [`crate::app::App::drain_inbox`] for the merge
+//! into `todo.md`. See [`crate::app::App::drain_inbox`] for the merge
 //! wiring; this module owns the pure per-line transformation.
 
 use std::path::{Path, PathBuf};
@@ -18,24 +18,24 @@ pub const FILENAME: &str = "inbox.md";
 pub const STAGING_FILENAME: &str = "inbox.md.chiba-staging";
 pub const LOCK_FILENAME: &str = "inbox.md.chiba-lock";
 
-/// Sibling `inbox.txt` next to the given todo.txt path. Falls back to
+/// Sibling `inbox.md` next to the given todo file path. Falls back to
 /// the current directory if `todo_path` has no parent.
 pub fn path_for(todo_path: &Path) -> PathBuf {
     sibling(todo_path, FILENAME)
 }
 
 /// Staging file used during drain. The merge step renames
-/// `inbox.txt` → `inbox.txt.chiba-staging` *before* reading, so any
+/// `inbox.md` → `inbox.md.chiba-staging` *before* reading, so any
 /// concurrent external append after the rename lands in a fresh
-/// `inbox.txt` rather than being lost. The staging file is deleted only
-/// after the merged `todo.txt` has been written atomically; if chiba
+/// `inbox.md` rather than being lost. The staging file is deleted only
+/// after the merged `todo.md` has been written atomically; if chiba
 /// crashes between, the next drain picks the staging file up and merges
 /// it as if it were a regular inbox.
 pub fn staging_path_for(todo_path: &Path) -> PathBuf {
     sibling(todo_path, STAGING_FILENAME)
 }
 
-/// Advisory-lock file guarding `inbox.txt`. Held briefly by both the
+/// Advisory-lock file guarding `inbox.md`. Held briefly by both the
 /// `chiba serve` POST handler (around its append) and the TUI drain
 /// (around its rename-and-merge). Without it the writer's `open` could
 /// pin the inode after the drain has renamed it to `staging`, the
@@ -49,7 +49,7 @@ pub fn lock_path_for(todo_path: &Path) -> PathBuf {
 /// Acquire the inbox lock. The returned handle holds an exclusive
 /// `flock`-style lock for its lifetime — drop it to release. Both
 /// producers and the drain take this around any operation touching
-/// `inbox.txt` or `staging`. Cross-platform via `std::fs::File::lock`
+/// `inbox.md` or `staging`. Cross-platform via `std::fs::File::lock`
 /// (`flock` on Unix, `LockFileEx` on Windows); released automatically
 /// on process exit if the holder crashes.
 pub fn acquire_lock(todo_path: &Path) -> std::io::Result<std::fs::File> {

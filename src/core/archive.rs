@@ -8,7 +8,7 @@ use super::outcome::{
 };
 use crate::todo::{self, Task};
 
-/// Owns the archived (`done.txt`) tasks and the lifecycle around loading them
+/// Owns the archived (`done.md`) tasks and the lifecycle around loading them
 /// off-thread at startup. Fields are `pub(crate)` so the `Store` methods in this
 /// file can mutate the archive directly; external callers go through the read
 /// methods.
@@ -30,14 +30,14 @@ fn done_path(todo_path: &Path) -> PathBuf {
 }
 
 impl Archive {
-    /// Construct an `Archive` for the sibling `done.txt` of `todo_path` and
+    /// Construct an `Archive` for the sibling `done.md` of `todo_path` and
     /// spawn a worker thread to read+parse it. The first frame can render
-    /// `todo.txt` immediately while the loader runs in the background.
+    /// `todo.md` immediately while the loader runs in the background.
     pub fn spawn(todo_path: &Path) -> Self {
         Self::spawn_at(done_path(todo_path))
     }
 
-    /// Like [`Archive::spawn`] but for an explicit `done.txt` path (e.g. a
+    /// Like [`Archive::spawn`] but for an explicit `done.md` path (e.g. a
     /// `DONE_FILE` that isn't a sibling of the todo file).
     pub fn spawn_at(path: PathBuf) -> Self {
         let loader_path = path.clone();
@@ -56,13 +56,13 @@ impl Archive {
         }
     }
 
-    /// Read and parse the sibling `done.txt` inline (no background thread).
+    /// Read and parse the sibling `done.md` inline (no background thread).
     /// Used by the one-shot CLI, where spawning a loader would be wasteful.
     pub fn load_sync(todo_path: &Path) -> Self {
         Self::load_sync_at(done_path(todo_path))
     }
 
-    /// Like [`Archive::load_sync`] but for an explicit `done.txt` path.
+    /// Like [`Archive::load_sync`] but for an explicit `done.md` path.
     pub fn load_sync_at(path: PathBuf) -> Self {
         let body = std::fs::read_to_string(&path).unwrap_or_default();
         let doc = todo::parse_doc(&body);
@@ -105,7 +105,7 @@ impl Archive {
     }
 }
 
-/// Internal result of refreshing `done.txt` before a mutation that writes it.
+/// Internal result of refreshing `done.md` before a mutation that writes it.
 enum ArchiveRefresh {
     Ready,
     Reloaded,
@@ -139,7 +139,7 @@ impl Store {
     }
 
     /// Pump archive state. Returns true when the visible archive changed: the
-    /// startup loader landed, or an external edit to `done.txt` was picked up.
+    /// startup loader landed, or an external edit to `done.md` was picked up.
     /// Non-blocking. The caller (TUI) is responsible for any view recompute.
     pub fn poll_archive(&mut self) -> bool {
         let mut changed = false;
@@ -165,7 +165,7 @@ impl Store {
         changed
     }
 
-    /// Apply a read result for `done.txt`. `NotFound` is treated as an empty
+    /// Apply a read result for `done.md`. `NotFound` is treated as an empty
     /// archive; any other I/O error preserves in-memory state and returns
     /// `false` rather than wiping the archive.
     pub(crate) fn apply_archive_read(&mut self, read: std::io::Result<String>) -> bool {
@@ -193,7 +193,7 @@ impl Store {
         if to_move.is_empty() {
             return ArchiveOutcome::Nothing;
         }
-        // Read fresh so an external edit to done.txt since startup isn't lost.
+        // Read fresh so an external edit to done.md since startup isn't lost.
         let previous_archive_body = match self.read_archive_body() {
             Ok(b) => b,
             Err(e) => return ArchiveOutcome::Error(StoreError::ArchiveIo(e)),
@@ -203,8 +203,8 @@ impl Store {
             combined.push('\n');
         }
         combined.push_str(&todo::serialize(&to_move));
-        // Write done.txt before truncating todo.txt so a failed archive can't
-        // lose data; if the todo write fails, roll done.txt back.
+        // Write done.md before truncating todo.md so a failed archive can't
+        // lose data; if the todo write fails, roll done.md back.
         if let Err(e) = todo::write_atomic(&self.archive.path, &combined) {
             return ArchiveOutcome::Error(StoreError::ArchiveIo(e));
         }
@@ -280,7 +280,7 @@ impl Store {
         UnarchiveOutcome::Unarchived
     }
 
-    /// Permanently remove an archived task from `done.txt`.
+    /// Permanently remove an archived task from `done.md`.
     pub fn archive_delete(&mut self, archive_idx: usize) -> ArchiveDeleteOutcome {
         match self.refresh_archive_for_mutation() {
             ArchiveRefresh::Ready => {}

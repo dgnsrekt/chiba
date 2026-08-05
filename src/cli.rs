@@ -111,7 +111,7 @@ pub fn resolve_target(arg: Option<String>) -> io::Result<Target> {
 }
 
 /// What the TUI should open. `File` is a concrete path (created on resolve if
-/// missing); `FirstRun` means nothing was specified and no `./todo.txt`
+/// missing); `FirstRun` means nothing was specified and no `./todo.md`
 /// exists, so the caller should show the welcome prompt.
 pub enum Target {
     File(PathBuf),

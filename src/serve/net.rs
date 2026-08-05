@@ -1,6 +1,6 @@
 //! Network helpers for `chiba serve`: LAN-IP discovery, token
 //! generation, form-encoded body decoding, and the atomic append to
-//! `inbox.txt` that the POST handler uses.
+//! `inbox.md` that the POST handler uses.
 
 use std::fs::OpenOptions;
 use std::io::{self, Read, Seek, SeekFrom, Write};
@@ -117,7 +117,7 @@ fn hex_value(b: u8) -> Option<u8> {
     }
 }
 
-/// Append one line to the sibling `inbox.txt`. Uses `O_APPEND` under
+/// Append one line to the sibling `inbox.md`. Uses `O_APPEND` under
 /// [`inbox::acquire_lock`] so concurrent producers and the TUI drain
 /// serialize: the drain's rename can't strand a pending writer's data
 /// on an unlinked inode, and two writers can't tear each other's
@@ -250,7 +250,7 @@ mod tests {
 
     #[test]
     fn append_inserts_leading_newline_when_prior_content_lacks_one() {
-        // Some external producer may have written `inbox.txt` without a
+        // Some external producer may have written `inbox.md` without a
         // trailing newline. Our append must not concatenate onto that
         // dangling line — both lines have to land separately so the
         // drain parses them as distinct tasks.

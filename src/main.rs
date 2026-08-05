@@ -31,7 +31,7 @@ fn main() -> Result<()> {
     }
     let arg = argv.first().cloned();
     // `start_mode` is `Welcome` only on a true first run (no target and no
-    // ./todo.txt); every other entry opens straight into Normal.
+    // ./todo.md); every other entry opens straight into Normal.
     let (path, start_mode) = match arg.as_deref() {
         Some("--help") | Some("-h") => {
             print_usage();
@@ -222,7 +222,7 @@ fn run(
             dirty = true;
         }
         // Drain the startup archive loader (and pick up external edits to
-        // done.txt). Non-blocking: the first frame can render todo.txt
+        // done.md). Non-blocking: the first frame can render todo.md
         // before the archive read completes.
         if app.poll_archive() {
             dirty = true;
@@ -374,7 +374,7 @@ fn handle_key(app: &mut App, key: KeyEvent, keybinds: &KeyBindings) {
     }
 }
 
-/// First-run welcome prompt. `c` creates `./todo.txt` (the App's current
+/// First-run welcome prompt. `c` creates `./todo.md` (the App's current
 /// `file_path`) and edits it; `s` opens the bundled sample; `q`/`Esc` quits
 /// without creating anything. Any other key is ignored so a stray press
 /// doesn't silently pick an option.
@@ -1071,7 +1071,7 @@ fn resolve_normal_key(app: &mut App, key: KeyEvent, keybinds: &KeyBindings) -> O
 
 fn apply_action(app: &mut App, action: Action) {
     // Archive view is read-only with two exceptions: `x` un-archives the
-    // row at the cursor, `dd` permanently removes it from done.txt. Other
+    // row at the cursor, `dd` permanently removes it from done.md. Other
     // mutating actions flash a hint and abort. Navigation, view-switch,
     // theme/density/layout toggles, and overlays (help/settings) fall
     // through to the normal handler below.
@@ -1610,7 +1610,7 @@ mod tests {
     }
 
     /// Build an isolated App rooted in a fresh temp dir, optionally seeding
-    /// done.txt and waiting for the startup loader to land.
+    /// done.md and waiting for the startup loader to land.
     fn build_app_with_archive(todo_raw: &str, done_raw: Option<&str>) -> App {
         use std::time::{Duration, Instant};
         static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
@@ -1619,10 +1619,10 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("create test dir");
         let todo_path = dir.join("todo.md");
-        std::fs::write(&todo_path, chiba::todo::from_todotxt(todo_raw)).expect("write todo.txt");
+        std::fs::write(&todo_path, chiba::todo::from_todotxt(todo_raw)).expect("write todo.md");
         if let Some(body) = done_raw {
             std::fs::write(dir.join("done.md"), chiba::todo::from_todotxt(body))
-                .expect("write done.txt");
+                .expect("write done.md");
         }
         let mut app = App::new(
             todo_path,

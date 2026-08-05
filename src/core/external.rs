@@ -36,8 +36,8 @@ impl Store {
         Reconcile::Reloaded
     }
 
-    /// Merge any sibling `inbox.txt` (or recovered staging file from a previous
-    /// interrupted drain) into `todo.txt`. Each line is run through the
+    /// Merge any sibling `inbox.md` (or recovered staging file from a previous
+    /// interrupted drain) into `todo.md`. Each line is run through the
     /// natural-language pipeline; invalid lines are skipped and counted. The
     /// returned [`DrainReport`] tells the caller what happened so it can render
     /// a message — the core never flashes.
@@ -52,7 +52,7 @@ impl Store {
         // Fast path: if neither the inbox nor a recovered staging file
         // exists, there's nothing to drain — skip the lock entirely so the
         // common case (no capture activity) doesn't litter a lock file next
-        // to todo.txt. A POST that creates inbox.txt between this check and
+        // to todo.md. A POST that creates inbox.md between this check and
         // the next tick is benign: it takes the lock itself when appending,
         // and the next drain picks the line up.
         if !inbox_path.exists() && !staging.exists() {
@@ -68,7 +68,7 @@ impl Store {
         };
 
         // Step 1: stage. Reuse an existing staging file (crash recovery);
-        // otherwise atomically rename inbox.txt → staging so concurrent
+        // otherwise atomically rename inbox.md → staging so concurrent
         // appends go to a fresh file. If neither exists, nothing to do.
         let staging_body = match std::fs::read_to_string(&staging) {
             Ok(body) => body,

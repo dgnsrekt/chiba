@@ -17,9 +17,9 @@ expression: buffer_to_text(&buf)
                       │                         ▀▀▀ ▀▄                       │                      
                       │                               ▀▄                     │                      
                       │                                                      │                      
-                      │  no todo.txt in this folder yet                      │                      
+                      │  no todo.md in this folder yet                       │                      
                       │                                                      │                      
-                      │   c   create ./todo.txt here                         │                      
+                      │   c   create ./todo.md here                          │                      
                       │   s   open the sample                                │                      
                       │   q   quit                                           │                      
                       │                                                      │                      
@@ -33,4 +33,4 @@ expression: buffer_to_text(&buf)
                                                                                                     
                                                                                                     
                                                                                                     
- WELCOME   c create ./todo.txt · s open sample · q quit           0 open · 2026-05-06 · chiba 0.1.0
+ WELCOME   c create ./todo.md · s open sample · q quit            0 open · 2026-05-06 · chiba 0.1.0

@@ -254,7 +254,7 @@ impl App {
             UnarchiveOutcome::OutOfRange => {}
             UnarchiveOutcome::Aborted(r) => self.handle_reconcile_abort(r),
             UnarchiveOutcome::DoneReloaded => {
-                self.flash("done.txt changed on disk — reloaded");
+                self.flash("done.md changed on disk — reloaded");
                 self.recompute_visible();
                 self.clamp_cursor();
             }
@@ -262,7 +262,7 @@ impl App {
         }
     }
 
-    /// Permanently remove an archived task from `done.txt`.
+    /// Permanently remove an archived task from `done.md`.
     pub fn archive_delete(&mut self, archive_idx: usize) {
         match self.store.archive_delete(archive_idx) {
             ArchiveDeleteOutcome::Deleted => {
@@ -272,7 +272,7 @@ impl App {
             }
             ArchiveDeleteOutcome::OutOfRange => {}
             ArchiveDeleteOutcome::DoneReloaded => {
-                self.flash("done.txt changed on disk — reloaded");
+                self.flash("done.md changed on disk — reloaded");
                 self.recompute_visible();
                 self.clamp_cursor();
             }
