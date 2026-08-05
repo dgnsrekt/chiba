@@ -10,6 +10,7 @@ pub mod config_watcher;
 pub mod core;
 pub mod inbox;
 pub mod keybinds;
+pub mod migrate;
 pub mod nl;
 pub mod note;
 pub mod recurrence;

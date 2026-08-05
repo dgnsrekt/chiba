@@ -51,12 +51,30 @@ fn main() -> Result<()> {
             eprintln!("try `chiba --help`");
             std::process::exit(2);
         }
-        _ => match cli::resolve_target(arg)? {
-            cli::Target::File(p) => (p, Mode::Normal),
-            // Open into the welcome prompt backed by an as-yet-uncreated
-            // ./todo.txt; `handle_welcome` materializes the file the user picks.
-            cli::Target::FirstRun => (std::path::PathBuf::from("todo.md"), Mode::Welcome),
-        },
+        _ => {
+            // `resolve_target` creates the file it picks, so an unmigrated
+            // directory has to be caught first — otherwise launching chiba
+            // beside a todo.txt silently creates an empty todo.md and puts
+            // the user in the ambiguous state.
+            if arg.is_none() {
+                let dir = cli::resolve_dir();
+                if chiba::migrate::state(&dir) == chiba::migrate::State::TodoTxt {
+                    eprintln!("chiba: {} holds a todo.txt and no todo.md.", dir.display());
+                    eprintln!();
+                    eprintln!("  chiba migrate --dry-run    see what would change");
+                    eprintln!("  chiba migrate              convert todo/done/inbox to markdown");
+                    eprintln!();
+                    eprintln!("Your todo.txt is left exactly as it is until you run that.");
+                    std::process::exit(1);
+                }
+            }
+            match cli::resolve_target(arg)? {
+                cli::Target::File(p) => (p, Mode::Normal),
+                // Open into the welcome prompt backed by an as-yet-uncreated
+                // ./todo.md; `handle_welcome` materializes the file the user picks.
+                cli::Target::FirstRun => (std::path::PathBuf::from("todo.md"), Mode::Welcome),
+            }
+        }
     };
     // A freshly-created file is empty; otherwise read it. We accept NotFound
     // (race with deletion between resolve_path and now) as "empty file" but
@@ -87,6 +105,7 @@ fn main() -> Result<()> {
         }
     };
     let done = cli::done_path(&path);
+    let unmigrated = chiba::migrate::unmigrated_lines(&body);
     let mut app_state = App::new_with_done(path.clone(), done, body, today, cfg);
     app_state.config_path = Config::path();
     app_state.mode = start_mode;
@@ -104,6 +123,15 @@ fn main() -> Result<()> {
         n => app_state.flash(format!(
             "{n} theme(s) skipped — check ~/.config/chiba/themes/"
         )),
+    }
+    // An unmigrated todo.txt renders as an empty list, which reads as data
+    // loss. Say what happened and what to run — this outranks a theme warning.
+    if unmigrated > 0 {
+        app_state.flash(format!(
+            "{unmigrated} todo.txt task(s) not visible — quit and run `chiba migrate`"
+        ));
+    } else if chiba::migrate::state(&cli::resolve_dir()) == chiba::migrate::State::Ambiguous {
+        app_state.flash("both todo.md and todo.txt exist — the todo.txt is being ignored");
     }
     if std::env::var_os("CHIBA_NO_UPDATE_CHECK").is_none() {
         app_state.set_update_check(update::spawn_check());
@@ -159,8 +187,10 @@ fn print_usage() {
     println!("  listpri, lsp [PRIORITY]   list prioritized tasks");
     println!("  listproj, lsprj           list +projects");
     println!("  listcon, lsc              list @contexts");
-    println!("  import SRC [DST]          convert a todo.txt file to markdown");
-    println!("  export SRC [DST]          convert a markdown file back to todo.txt");
+    println!("  migrate [DIR]             adopt markdown: todo/done/inbox .txt -> .md");
+    println!("  eject [DIR]               hand a directory back to todo.txt");
+    println!("  import SRC [DST]          convert one todo.txt file to markdown");
+    println!("  export SRC [DST]          convert one markdown file back to todo.txt");
     println!("  update                    print instructions for upgrading chiba");
     println!();
     println!("Options:");
@@ -169,6 +199,7 @@ fn print_usage() {
     println!("  -h, --help       show this message and exit");
     println!("  -V, --version    print version and exit");
     println!("      --sample     open the sample file in the TUI");
+    println!("      --dry-run    (migrate/eject) show the plan without writing");
     println!();
     println!("Environment:");
     println!("  CHIBA_DIR    directory holding todo.md / done.md");

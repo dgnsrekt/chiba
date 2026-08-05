@@ -507,13 +507,61 @@ Pressing `x` on the line above marks the original complete *and* inserts
 ### Coming from todo.txt
 
 ```sh
-chiba import todo.txt          # writes todo.md
-chiba export todo.md out.txt   # back again; reports any prose it had to drop
+chiba migrate --dry-run   # show exactly what would change
+chiba migrate             # todo/done/inbox .txt -> .md
 ```
 
-`import` is idempotent and lossless. `export` is lossy by nature — headings and
-prose have no todo.txt equivalent — so it prints how many lines it dropped
-rather than dropping them quietly.
+Migration converts the whole **set** — `todo`, `done` and `inbox` together.
+Converting the task file alone would leave your archive behind, which reads as
+"my history vanished".
+
+Nothing is written until every file has been converted in memory *and* verified
+by round-tripping the result back through the opposite converter. A conversion
+that can't prove itself lossless touches nothing:
+
+```
+  todo.txt → todo.md — 3 tasks, todo.txt.bak kept
+  done.txt → done.md — 1 task, done.txt.bak kept
+  inbox.txt → inbox.md (moved; capture spool, not task lines)
+
+converted 4 tasks in ~/notes
+verified: round-trips back to todo.txt byte-identically
+```
+
+Your originals are kept as `.bak` — migration never deletes and never
+overwrites an existing backup. Running it twice is a no-op.
+
+The inbox is *moved*, not converted: its lines are natural language awaiting
+the capture pipeline, not tasks, so wrapping them in checkboxes would be wrong.
+
+### Going back
+
+```sh
+chiba eject --dry-run
+chiba eject               # todo/done/inbox .md -> .txt
+```
+
+`eject` hands the directory back to todo.txt-cli or tuxedo. It's lossy by
+nature — todo.txt has nowhere to put a heading — so it reports how many
+non-task lines it couldn't carry, and they survive in `todo.md.bak`.
+
+For single files rather than a directory, `chiba import SRC [DST]` and
+`chiba export SRC [DST]` do one conversion with no renaming.
+
+### If both files exist
+
+chiba uses `todo.md` and ignores `todo.txt`, which means the two silently
+drift. It says so on every run, and `chiba migrate` prints the breakdown:
+
+```
+  todo.md   3 tasks
+  todo.txt  2 tasks
+  todo.md is newer
+  2 task(s) only in todo.md, 1 only in todo.txt
+```
+
+This usually means a synced folder is shared with a machine still running
+tuxedo. Pick one source of truth — move the loser aside as `.bak`.
 
 chiba reads `$CHIBA_FILE` / `$CHIBA_DIR`, falling back to `$TODO_FILE` /
 `$TODO_DIR`, so an existing todo.txt-cli environment keeps pointing at the same

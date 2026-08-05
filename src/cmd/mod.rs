@@ -18,31 +18,40 @@ struct Args {
     json: bool,
     /// `-f`/`--force`: skip confirmation prompts (matches todo.sh's `-f`).
     force: bool,
+    /// `--dry-run`: plan a migration but write nothing.
+    dry_run: bool,
     free: Vec<String>,
 }
 
 fn parse_args(rest: &[String]) -> Result<Args, String> {
     let mut json = false;
     let mut force = false;
+    let mut dry_run = false;
     let mut free = Vec::new();
     for a in rest {
         match a.as_str() {
             "--json" => json = true,
             "-f" | "--force" => force = true,
+            "--dry-run" | "-n" => dry_run = true,
             s if s.starts_with('-') && s != "-" => {
                 return Err(format!("unknown option: {s}"));
             }
             _ => free.push(a.clone()),
         }
     }
-    Ok(Args { json, force, free })
+    Ok(Args {
+        json,
+        force,
+        dry_run,
+        free,
+    })
 }
 
 /// Every recognized subcommand and alias.
 const SUBCOMMANDS: &[&str] = &[
     "add", "a", "append", "app", "prepend", "prep", "replace", "pri", "p", "depri", "dp", "done",
     "do", "complete", "del", "rm", "archive", "list", "ls", "listall", "lsa", "listpri", "lsp",
-    "listproj", "lsprj", "listcon", "lsc", "import", "export",
+    "listproj", "lsprj", "listcon", "lsc", "import", "export", "migrate", "eject",
 ];
 
 /// Locate the subcommand: the first non-global token, if it is a known
@@ -52,7 +61,7 @@ fn find_subcommand(argv: &[String]) -> Option<usize> {
     let mut i = 0;
     while i < argv.len() {
         let a = argv[i].as_str();
-        if a == "--json" || a == "-f" || a == "--force" {
+        if matches!(a, "--json" | "-f" | "--force" | "--dry-run" | "-n") {
             i += 1;
         } else {
             return SUBCOMMANDS.contains(&a).then_some(i);
@@ -83,11 +92,27 @@ pub fn run(argv: &[String]) -> Result<Option<i32>> {
         }
     };
 
-    // Format conversion runs on files directly — no store, no path resolution.
+    // Format conversion and migration run on files directly — no store.
     if cmd == "import" || cmd == "export" {
         return Ok(Some(cmd_convert(&cmd, &args.free, args.force)));
     }
+    if cmd == "migrate" || cmd == "eject" {
+        return Ok(Some(cmd_migrate(
+            &cmd,
+            &args.free,
+            args.force,
+            args.dry_run,
+        )));
+    }
 
+    // Resolving a path *creates* the file when missing, so check for an
+    // unmigrated directory first — otherwise simply running `chiba ls` next to
+    // a todo.txt manufactures an empty todo.md and lands the user straight in
+    // the ambiguous state.
+    if let Some(code) = refuse_unmigrated_dir() {
+        return Ok(Some(code));
+    }
+    warn_if_ambiguous();
     // Path resolution via $CHIBA_FILE / $CHIBA_DIR (todo.txt-cli vars as
     // fallback) / $DONE_FILE.
     let path = crate::cli::resolve_path(None).context("resolving todo file")?;
@@ -97,6 +122,9 @@ pub fn run(argv: &[String]) -> Result<Option<i32>> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
     };
+    // Never answer "0 of 0 tasks" to a file that is plainly a todo.txt — that
+    // reads as "my tasks are gone".
+    warn_if_unmigrated(&path, &body);
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let mut store = Store::open_sync_with_done(path, done, body, today);
 
@@ -124,6 +152,55 @@ pub fn run(argv: &[String]) -> Result<Option<i32>> {
         }
     };
     Ok(Some(code))
+}
+
+/// Stop before touching a directory that holds a `todo.txt` and no `todo.md`.
+/// Returns an exit code when the caller must not proceed.
+fn refuse_unmigrated_dir() -> Option<i32> {
+    let dir = crate::cli::resolve_dir();
+    if crate::migrate::state(&dir) != crate::migrate::State::TodoTxt {
+        return None;
+    }
+    eprintln!(
+        "chiba: {} holds a todo.txt and no todo.md — chiba can't read it as-is.",
+        dir.display()
+    );
+    eprintln!("chiba: run `chiba migrate --dry-run` to see the plan, then `chiba migrate`.");
+    eprintln!("chiba: (or point chiba elsewhere with $CHIBA_FILE.)");
+    Some(1)
+}
+
+/// Both task files present: chiba will use `todo.md` and quietly ignore the
+/// `todo.txt` next to it, so the two drift apart. Say so every time rather than
+/// letting that happen in silence.
+fn warn_if_ambiguous() {
+    let dir = crate::cli::resolve_dir();
+    if crate::migrate::state(&dir) != crate::migrate::State::Ambiguous {
+        return;
+    }
+    eprintln!(
+        "chiba: {} has both todo.md and todo.txt. Using todo.md; the todo.txt is ignored \
+         and will drift.",
+        dir.display()
+    );
+    eprintln!("chiba: run `chiba migrate` for a breakdown of the difference.");
+}
+
+/// Print an actionable hint when the resolved file holds todo.txt-shaped lines
+/// and no checkboxes at all. Goes to stderr so it can't corrupt `--json` output
+/// or a piped task list.
+fn warn_if_unmigrated(path: &std::path::Path, body: &str) {
+    let n = crate::migrate::unmigrated_lines(body);
+    if n == 0 {
+        return;
+    }
+    eprintln!(
+        "chiba: {} looks like a todo.txt — {n} task(s) are not in markdown, so chiba can't see them.",
+        path.display(),
+    );
+    eprintln!(
+        "chiba: run `chiba migrate` to convert this directory (or `chiba migrate --dry-run` first)."
+    );
 }
 
 // ----- helpers -----------------------------------------------------------
@@ -505,6 +582,147 @@ fn cmd_del(store: &mut Store, pos: &[String], json: bool, force: bool) -> i32 {
 /// Conversion only — neither command touches the resolved todo file, so
 /// pointing them at anything is safe. The destination defaults to the source
 /// with its extension swapped, and is never overwritten without `--force`.
+/// `chiba migrate [DIR] [--dry-run]` — adopt markdown for a whole directory.
+/// `chiba eject [DIR] [--dry-run]` — hand it back to todo.txt.
+///
+/// Both convert `todo`, `done`, and `inbox` together: migrating the task file
+/// alone leaves the archive behind, which reads as "my history vanished".
+fn cmd_migrate(cmd: &str, pos: &[String], force: bool, dry_run: bool) -> i32 {
+    use crate::migrate::{self, Direction, Error};
+
+    let dir = match pos.first() {
+        Some(d) => std::path::PathBuf::from(d),
+        None => crate::cli::resolve_dir(),
+    };
+    let direction = match cmd {
+        "migrate" => Direction::Import,
+        _ => Direction::Eject,
+    };
+
+    let plan = match migrate::plan(&dir, direction, force) {
+        Ok(p) => p,
+        Err(Error::NothingToDo) => {
+            let what = match direction {
+                Direction::Import => "todo.txt",
+                Direction::Eject => "todo.md",
+            };
+            println!("nothing to do — no {what} in {}", dir.display());
+            return 0;
+        }
+        Err(e @ Error::Ambiguous) => {
+            eprintln!("chiba: {e}");
+            eprintln!();
+            report_ambiguous(&dir);
+            return 1;
+        }
+        Err(e) => return err(e),
+    };
+
+    let verb = match (direction, dry_run) {
+        (Direction::Import, true) => "would convert",
+        (Direction::Import, false) => "converted",
+        (Direction::Eject, true) => "would convert back",
+        (Direction::Eject, false) => "converted back",
+    };
+    for step in &plan.steps {
+        let name = |p: &std::path::Path| {
+            p.file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default()
+        };
+        // A renamed-only file leaves no backup — claiming otherwise in a
+        // command whose whole job is trust would be worse than saying nothing.
+        let detail = match step.renamed_only {
+            true => " (moved; capture spool, not task lines)".to_string(),
+            false => {
+                let tasks = format!(" — {} {}", step.tasks, plural(step.tasks, "task"));
+                match dry_run {
+                    true => tasks,
+                    false => format!("{tasks}, {} kept", name(&step.backup)),
+                }
+            }
+        };
+        println!("  {} → {}{}", name(&step.from), name(&step.to), detail);
+    }
+
+    if dry_run {
+        println!("\ndry run — nothing written");
+        return 0;
+    }
+    if let Err(e) = migrate::apply(&plan) {
+        return err(e);
+    }
+    let n = plan.tasks();
+    println!("\n{verb} {n} {} in {}", plural(n, "task"), dir.display());
+    match direction {
+        // Import is provably reversible, so say so — this is the whole reason
+        // to trust an operation that renames the user's files.
+        Direction::Import => println!("verified: round-trips back to todo.txt byte-identically"),
+        Direction::Eject if plan.dropped() > 0 => {
+            let d = plan.dropped();
+            println!(
+                "{d} non-task {} (headings, prose) have no place in todo.txt — \
+                 preserved in the .bak files",
+                plural(d, "line"),
+            );
+        }
+        Direction::Eject => {}
+    }
+    0
+}
+
+fn plural(n: usize, word: &str) -> String {
+    match n {
+        1 => word.to_string(),
+        _ => format!("{word}s"),
+    }
+}
+
+/// Explain a directory holding both `todo.md` and `todo.txt`: which is newer,
+/// how many tasks each has, and how far apart they are.
+fn report_ambiguous(dir: &std::path::Path) {
+    let describe = |name: &str| {
+        let path = dir.join(name);
+        let body = std::fs::read_to_string(&path).unwrap_or_default();
+        let tasks: Vec<String> = match name.ends_with(".md") {
+            true => crate::todo::parse_doc(&body)
+                .tasks
+                .iter()
+                .map(|t| t.raw.clone())
+                .collect(),
+            false => body
+                .lines()
+                .map(str::trim)
+                .filter(|l| !l.is_empty())
+                .map(str::to_string)
+                .collect(),
+        };
+        let modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
+        (tasks, modified)
+    };
+    let (md, md_time) = describe("todo.md");
+    let (txt, txt_time) = describe("todo.txt");
+    let newer = match (md_time, txt_time) {
+        (Some(a), Some(b)) if a > b => "todo.md is newer",
+        (Some(a), Some(b)) if b > a => "todo.txt is newer",
+        _ => "both have the same timestamp",
+    };
+    let only_in = |a: &[String], b: &[String]| a.iter().filter(|t| !b.contains(t)).count();
+    eprintln!("  todo.md   {} tasks", md.len());
+    eprintln!("  todo.txt  {} tasks", txt.len());
+    eprintln!("  {newer}");
+    eprintln!(
+        "  {} task(s) only in todo.md, {} only in todo.txt",
+        only_in(&md, &txt),
+        only_in(&txt, &md),
+    );
+    eprintln!();
+    eprintln!("This usually means a sync folder is shared with a machine still running");
+    eprintln!("tuxedo. Pick one source of truth:");
+    eprintln!("  mv todo.txt todo.txt.bak && chiba      # keep the markdown");
+    eprintln!("  mv todo.md  todo.md.bak  && chiba migrate   # keep the todo.txt");
+}
+
 fn cmd_convert(cmd: &str, pos: &[String], force: bool) -> i32 {
     let importing = cmd == "import";
     let (from_ext, to_ext) = match importing {

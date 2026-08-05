@@ -46,6 +46,24 @@ fn env_first(names: &[&str]) -> Option<std::ffi::OsString> {
     names.iter().find_map(std::env::var_os)
 }
 
+/// The directory whose task files chiba would act on: the parent of an
+/// explicit `$CHIBA_FILE`/`$TODO_FILE`, else `$CHIBA_DIR`/`$TODO_DIR`, else the
+/// current directory. Used by `migrate` and `eject`, which work on a whole
+/// directory rather than a single resolved file.
+pub fn resolve_dir() -> PathBuf {
+    if let Some(f) = env_first(&["CHIBA_FILE", "TODO_FILE"]) {
+        return PathBuf::from(f)
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| PathBuf::from("."));
+    }
+    if let Some(dir) = env_first(&["CHIBA_DIR", "TODO_DIR"]) {
+        return PathBuf::from(dir);
+    }
+    PathBuf::from(".")
+}
+
 /// Resolve the `done.md` path for archiving. Honors `$DONE_FILE`; otherwise
 /// the sibling `done.md` next to the todo file (the core's default).
 pub fn done_path(todo_path: &Path) -> PathBuf {
