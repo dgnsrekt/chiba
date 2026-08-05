@@ -51,7 +51,7 @@ impl Store {
                         return None;
                     }
                     let parsed = todo::parse_line(&next_raw).ok()?;
-                    self.tasks.insert(abs + 1, parsed);
+                    self.task_insert(abs + 1, parsed);
                     Some(abs + 1)
                 });
                 if let Err(e) = self.persist() {
@@ -113,7 +113,7 @@ impl Store {
             return DeleteOutcome::OutOfRange;
         }
         self.push_history();
-        self.tasks.remove(abs);
+        self.task_remove(abs);
         match self.persist() {
             Ok(()) => DeleteOutcome::Deleted { abs },
             Err(e) => DeleteOutcome::Error(e),
@@ -154,7 +154,7 @@ impl Store {
         match parsed {
             Ok(task) => {
                 self.push_history();
-                self.tasks.push(task);
+                self.task_push(task);
                 match self.persist() {
                     Ok(()) => AddOutcome::Added {
                         abs: self.tasks.len() - 1,
@@ -376,7 +376,7 @@ impl Store {
         spawns.sort_by_key(|s| std::cmp::Reverse(s.0));
         let spawned = spawns.len();
         for (abs, parsed) in spawns {
-            self.tasks.insert(abs + 1, parsed);
+            self.task_insert(abs + 1, parsed);
         }
         let completed = to_complete.len();
         match self.persist() {
@@ -403,7 +403,7 @@ impl Store {
         self.push_history();
         let deleted = indices.len();
         for abs in indices {
-            self.tasks.remove(abs);
+            self.task_remove(abs);
         }
         match self.persist() {
             Ok(()) => BulkDeleteOutcome::Done { deleted },
@@ -717,5 +717,61 @@ mod tests {
         assert_eq!(store.tasks().len(), 2);
         assert_eq!(store.tasks()[0].raw, "a");
         assert_eq!(store.tasks()[1].raw, "c");
+    }
+
+    // ----- document preservation through the real mutation paths ------------
+
+    /// Build a store over a sectioned markdown document (headings + prose),
+    /// bypassing `md()` since the fixture is already markdown.
+    fn build_doc_store(body: &str) -> Store {
+        let path = crate::core::test_support::test_path();
+        std::fs::write(&path, body).expect("seed");
+        Store::open_sync(path, body.to_string(), "2026-05-06".into())
+    }
+
+    const DOC: &str = "\
+# Work
+
+Notes worth keeping.
+
+- [ ] task a
+- [ ] task b
+
+# Home
+- [ ] task c
+";
+
+    #[test]
+    fn delete_does_not_reorder_the_document() {
+        let mut store = build_doc_store(DOC);
+        store.delete(0);
+        let on_disk = std::fs::read_to_string(store.file_path()).expect("read");
+        assert_eq!(
+            on_disk, "# Work\n\nNotes worth keeping.\n\n- [ ] task b\n\n# Home\n- [ ] task c\n",
+            "deleting task a must not move task c above its heading",
+        );
+    }
+
+    #[test]
+    fn undo_after_delete_restores_the_document_exactly() {
+        let mut store = build_doc_store(DOC);
+        store.delete(0);
+        store.undo();
+        let on_disk = std::fs::read_to_string(store.file_path()).expect("read");
+        assert_eq!(on_disk, DOC, "undo must restore anchors, not just tasks");
+    }
+
+    #[test]
+    fn completing_a_recurring_task_keeps_the_successor_in_its_section() {
+        let body = "# Work\n- [ ] water plants due:2026-05-06 rec:1d\n\n# Home\n- [ ] other\n";
+        let mut store = build_doc_store(body);
+        store.toggle_complete(0);
+        let on_disk = std::fs::read_to_string(store.file_path()).expect("read");
+        let home = on_disk.find("# Home").expect("heading survives");
+        let next = on_disk.find("due:2026-05-07").expect("successor exists");
+        assert!(
+            next < home,
+            "the successor belongs under # Work:\n{on_disk}"
+        );
     }
 }

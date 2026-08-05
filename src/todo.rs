@@ -105,8 +105,17 @@ pub fn parse_line(raw: &str) -> Result<Task, ParseError> {
     // `#tag` is accepted as an alias for `@context` — it's what people already
     // type in markdown. Both forms land in the same list and round-trip as
     // whatever the user wrote; chiba never rewrites one into the other.
+    //
+    // Unlike `@`, a `#` tag must start with a letter. `#` is far too common as
+    // prose punctuation — `fix #1234`, `PR #99`, `channel #2` — and without
+    // this every issue reference becomes a junk context in the sidebar and in
+    // autocomplete. `@` keeps todo.txt's permissive rule for compatibility.
     let mut contexts = collect_tokens(rest, '@');
-    contexts.extend(collect_tokens(rest, '#'));
+    contexts.extend(
+        collect_tokens(rest, '#')
+            .into_iter()
+            .filter(|t| t.starts_with(|c: char| c.is_alphabetic())),
+    );
     let due = find_kv(rest, "due");
     let rec = find_kv(rest, "rec");
     let threshold = find_kv(rest, "t");
@@ -237,20 +246,70 @@ fn is_valid_key(k: &str) -> bool {
     chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
-/// A parsed markdown document: the tasks, plus every other line pinned to the
-/// absolute output position it was found at.
+/// Non-task lines (headings, prose, blanks, fenced code), each anchored to the
+/// **task ordinal it precedes**. An anchor of `n` means "emit before task `n`";
+/// `n == tasks.len()` means "after the last task".
 ///
-/// Non-task lines (headings, prose, blanks, code fences) are carried verbatim
-/// and are invisible to the rest of chiba — the point is only that writing the
-/// file back never destroys them. chiba's `parse_file` dropped them silently
-/// via `filter_map(...ok())`, which is exactly what makes it unusable on a real
-/// markdown file.
+/// Anchoring by ordinal rather than by absolute line is what keeps a document
+/// intact across mutations: delete the task above a heading and the heading
+/// stays with whatever follows it, instead of the file resequencing itself.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Text {
+    /// Ascending by anchor, in source order within an anchor.
+    lines: Vec<(usize, String)>,
+}
+
+impl Text {
+    pub fn is_empty(&self) -> bool {
+        self.lines.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.lines.len()
+    }
+
+    /// The text lines themselves, in document order, without their anchors.
+    pub fn iter(&self) -> impl Iterator<Item = &str> {
+        self.lines.iter().map(|(_, line)| line.as_str())
+    }
+
+    fn push(&mut self, anchor: usize, line: String) {
+        self.lines.push((anchor, line));
+    }
+
+    /// A task was inserted at `idx`. Everything anchored at or after it belongs
+    /// to the task that just got pushed down, so those anchors move with it —
+    /// which is what puts a recurrence successor under its own heading rather
+    /// than the next one.
+    pub fn on_insert(&mut self, idx: usize) {
+        for (anchor, _) in &mut self.lines {
+            if *anchor >= idx {
+                *anchor += 1;
+            }
+        }
+    }
+
+    /// The task at `idx` was removed. Text anchored *to* it stays put — it now
+    /// precedes whatever follows — while later anchors shift down to match.
+    pub fn on_remove(&mut self, idx: usize) {
+        for (anchor, _) in &mut self.lines {
+            if *anchor > idx {
+                *anchor -= 1;
+            }
+        }
+    }
+}
+
+/// A parsed markdown document: the tasks, plus every other line.
+///
+/// Non-task lines are carried verbatim and are invisible to the rest of chiba —
+/// the point is only that writing the file back never destroys them. tuxedo's
+/// `parse_file` dropped them silently via `filter_map(...ok())`, which is
+/// exactly what makes it unusable on a real markdown file.
 #[derive(Debug, Clone, Default)]
 pub struct Doc {
     pub tasks: Vec<Task>,
-    /// `(absolute line index, text)`, ascending. Pinned by position: adding or
-    /// removing tasks shifts tasks around these lines rather than moving them.
-    pub text: Vec<(usize, String)>,
+    pub text: Text,
 }
 
 /// Split a markdown task line into `(indent, bullet, done, body)`.
@@ -314,57 +373,56 @@ pub fn parse_md_line(line: &str) -> Option<Task> {
 pub fn parse_doc(s: &str) -> Doc {
     let mut doc = Doc::default();
     let mut in_fence = false;
-    for (idx, line) in s.lines().enumerate() {
+    for line in s.lines() {
+        // Anchor is the number of tasks seen so far — i.e. the ordinal of the
+        // task this line sits in front of.
+        let anchor = doc.tasks.len();
         if is_fence(line) {
             in_fence = !in_fence;
-            doc.text.push((idx, line.to_string()));
+            doc.text.push(anchor, line.to_string());
             continue;
         }
         // `- [ ] not a task` inside a code fence stays text.
         match if in_fence { None } else { parse_md_line(line) } {
             Some(task) => doc.tasks.push(task),
-            None => doc.text.push((idx, line.to_string())),
+            None => doc.text.push(anchor, line.to_string()),
         }
     }
     doc
 }
 
 /// Tasks only. Kept for the call sites that genuinely don't care about the
-/// surrounding document (the archive file, filters, tests).
+/// surrounding document (filters, tests).
 pub fn parse_file(s: &str) -> Vec<Task> {
     parse_doc(s).tasks
 }
 
-/// Serialize tasks with no surrounding document — used for the archive file.
+/// Serialize tasks with no surrounding document.
 pub fn serialize(tasks: &[Task]) -> String {
-    serialize_doc(tasks, &[])
+    serialize_doc(tasks, &Text::default())
 }
 
-/// Serialize tasks back into their document, re-inserting pinned text at the
-/// absolute positions it was parsed from. Untouched lines come out
-/// byte-identical.
-pub fn serialize_doc(tasks: &[Task], text: &[(usize, String)]) -> String {
+/// Serialize tasks back into their document, re-emitting each text line before
+/// the task it is anchored to. Untouched lines come out byte-identical.
+pub fn serialize_doc(tasks: &[Task], text: &Text) -> String {
     let mut out = String::new();
-    let mut tasks = tasks.iter();
-    let mut text = text.iter().peekable();
-    let total = tasks.len() + text.len();
-    for idx in 0..total {
-        match text.peek() {
-            Some((at, line)) if *at == idx => {
-                out.push_str(line);
-                text.next();
-            }
-            // ponytail: text past the end of the document (possible after
-            // deleting tasks) is flushed in order once the tasks run out.
-            _ => match tasks.next() {
-                Some(t) => out.push_str(&t.to_line()),
-                None => match text.next() {
-                    Some((_, line)) => out.push_str(line),
-                    None => break,
-                },
-            },
-        }
+    let mut lines = text.lines.iter().peekable();
+    let emit = |s: &str, out: &mut String| {
+        out.push_str(s);
         out.push('\n');
+    };
+    for (i, task) in tasks.iter().enumerate() {
+        // `<=` rather than `==`: an anchor that somehow fell behind still gets
+        // emitted here instead of being silently dropped.
+        while lines.peek().is_some_and(|(anchor, _)| *anchor <= i) {
+            let (_, line) = lines.next().expect("peeked");
+            emit(line, &mut out);
+        }
+        emit(&task.to_line(), &mut out);
+    }
+    // Anything anchored past the last task is the document's tail.
+    for (_, line) in lines {
+        emit(line, &mut out);
     }
     out
 }
@@ -396,11 +454,7 @@ pub fn from_todotxt(raw: &str) -> String {
 /// This is `chiba export`.
 pub fn to_todotxt(raw: &str) -> (String, usize) {
     let doc = parse_doc(raw);
-    let dropped = doc
-        .text
-        .iter()
-        .filter(|(_, l)| !l.trim().is_empty())
-        .count();
+    let dropped = doc.text.iter().filter(|l| !l.trim().is_empty()).count();
     let mut out = String::new();
     for t in &doc.tasks {
         out.push_str(&t.raw);
@@ -659,8 +713,10 @@ fn is_meta_token(tok: &str) -> bool {
     {
         return true;
     }
+    // Mirrors the `#tag` rule in `parse_line`: only letter-initial tags are
+    // metadata, so `fix #1234` keeps the `#1234` in its description text.
     if let Some(rest) = tok.strip_prefix('#')
-        && !rest.is_empty()
+        && rest.starts_with(|c: char| c.is_alphabetic())
     {
         return true;
     }
@@ -930,6 +986,87 @@ Some prose with a - [ ] that isn't at the start of a line.
     fn export_reports_dropped_prose() {
         let (_, dropped) = to_todotxt("# Heading\n\n- [ ] a task\nsome prose\n");
         assert_eq!(dropped, 2, "heading + prose counted, blank line not");
+    }
+
+    // ----- anchoring under mutation ---------------------------------------
+    //
+    // The first cut of this pinned text to *absolute* output positions, which
+    // silently reordered the document on every delete. These lock the
+    // ordinal-anchored behaviour in.
+
+    const SECTIONED: &str = "\
+# Work
+- [ ] task a
+- [ ] task b
+
+# Home
+- [ ] task c
+";
+
+    #[test]
+    fn deleting_a_task_leaves_headings_with_their_sections() {
+        let mut doc = parse_doc(SECTIONED);
+        doc.text.on_remove(0);
+        doc.tasks.remove(0);
+        assert_eq!(
+            serialize_doc(&doc.tasks, &doc.text),
+            "# Work\n- [ ] task b\n\n# Home\n- [ ] task c\n",
+            "task c must stay under # Home, not jump above it",
+        );
+    }
+
+    #[test]
+    fn deleting_the_last_task_of_a_section_keeps_the_heading_in_place() {
+        let mut doc = parse_doc(SECTIONED);
+        doc.text.on_remove(2);
+        doc.tasks.remove(2);
+        assert_eq!(
+            serialize_doc(&doc.tasks, &doc.text),
+            "# Work\n- [ ] task a\n- [ ] task b\n\n# Home\n",
+            "an emptied section keeps its heading, at the end",
+        );
+    }
+
+    #[test]
+    fn an_inserted_task_lands_in_its_own_section() {
+        // This is the recurrence-successor path: complete task b (index 1) and
+        // the fresh copy goes in at index 2 — under # Work, where b lives.
+        let mut doc = parse_doc(SECTIONED);
+        doc.text.on_insert(2);
+        doc.tasks
+            .insert(2, parse_line("task b next").expect("parse"));
+        assert_eq!(
+            serialize_doc(&doc.tasks, &doc.text),
+            "# Work\n- [ ] task a\n- [ ] task b\n- [ ] task b next\n\n# Home\n- [ ] task c\n",
+        );
+    }
+
+    #[test]
+    fn an_appended_task_goes_to_the_end_of_the_file() {
+        let mut doc = parse_doc(SECTIONED);
+        doc.tasks.push(parse_line("brand new").expect("parse"));
+        assert_eq!(
+            serialize_doc(&doc.tasks, &doc.text),
+            "# Work\n- [ ] task a\n- [ ] task b\n\n# Home\n- [ ] task c\n- [ ] brand new\n",
+        );
+    }
+
+    #[test]
+    fn removing_every_task_still_keeps_the_prose() {
+        let mut doc = parse_doc(SECTIONED);
+        for _ in 0..doc.tasks.len() {
+            doc.text.on_remove(0);
+            doc.tasks.remove(0);
+        }
+        assert_eq!(serialize_doc(&doc.tasks, &doc.text), "# Work\n\n# Home\n");
+    }
+
+    #[test]
+    fn hash_tags_must_start_with_a_letter() {
+        // Issue and PR references are prose, not contexts.
+        let t = parse_md_line("- [ ] fix #1234 and see PR #99 #home").expect("task");
+        assert_eq!(t.contexts, ["home"]);
+        assert_eq!(body_only(&t.raw), "fix #1234 and see PR #99");
     }
 
     #[test]

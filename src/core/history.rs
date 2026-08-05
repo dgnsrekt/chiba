@@ -3,22 +3,27 @@ use std::collections::VecDeque;
 use super::Store;
 use super::outcome::{Reconcile, UndoOutcome};
 use crate::app::UNDO_LIMIT;
-use crate::todo::Task;
+use crate::todo::{Task, Text};
+
+/// A restorable document state: the tasks *and* the anchors that place the
+/// surrounding prose. Snapshotting tasks alone would undo the tasks but leave
+/// the anchors shifted, silently reordering the file.
+pub type Snapshot = (Vec<Task>, Text);
 
 #[derive(Debug, Default, Clone)]
 pub struct History {
-    stack: VecDeque<Vec<Task>>,
+    stack: VecDeque<Snapshot>,
 }
 
 impl History {
-    pub fn push(&mut self, snapshot: Vec<Task>) {
+    pub fn push(&mut self, snapshot: Snapshot) {
         if self.stack.len() >= UNDO_LIMIT {
             self.stack.pop_front();
         }
         self.stack.push_back(snapshot);
     }
 
-    pub fn pop(&mut self) -> Option<Vec<Task>> {
+    pub fn pop(&mut self) -> Option<Snapshot> {
         self.stack.pop_back()
     }
 
@@ -37,7 +42,7 @@ impl History {
 
 impl Store {
     pub(crate) fn push_history(&mut self) {
-        self.history.push(self.tasks.clone());
+        self.history.push((self.tasks.clone(), self.text.clone()));
     }
 
     pub fn undo(&mut self) -> UndoOutcome {
@@ -46,8 +51,8 @@ impl Store {
             other => return UndoOutcome::Aborted(other),
         }
         match self.history.pop() {
-            Some(prev) => {
-                self.tasks = prev;
+            Some((tasks, text)) => {
+                (self.tasks, self.text) = (tasks, text);
                 match self.persist() {
                     Ok(()) => UndoOutcome::Undone,
                     Err(e) => UndoOutcome::Error(e),

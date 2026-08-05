@@ -121,7 +121,9 @@ impl Store {
         // Step 3: snapshot for undo, append, persist atomically.
         self.push_history();
         let merged = new_tasks.len();
-        self.tasks.extend(new_tasks);
+        for task in new_tasks {
+            self.task_push(task);
+        }
         let body = todo::serialize_doc(&self.tasks, &self.text);
         match todo::write_atomic(&self.file_path, &body) {
             Ok(()) => {

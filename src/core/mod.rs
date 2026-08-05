@@ -30,9 +30,10 @@ pub use outcome::{
 /// archive, undo history, and the on-disk reconciliation snapshot.
 pub struct Store {
     pub(crate) tasks: Vec<Task>,
-    /// Non-task lines of the todo file (headings, prose, fenced code), pinned
-    /// to their line positions so writing the file back never destroys them.
-    pub(crate) text: Vec<(usize, String)>,
+    /// Non-task lines of the todo file (headings, prose, fenced code), anchored
+    /// to the tasks they precede so writing the file back never destroys or
+    /// reorders them.
+    pub(crate) text: todo::Text,
     pub(crate) history: History,
     pub(crate) archive: Archive,
     pub(crate) file_path: PathBuf,
@@ -96,6 +97,28 @@ impl Store {
 
     pub fn tasks(&self) -> &[Task] {
         &self.tasks
+    }
+
+    /// Insert a task, keeping the document's text anchors in step.
+    ///
+    /// Every length-changing mutation must go through these two helpers rather
+    /// than touching `self.tasks` directly — an anchor left behind silently
+    /// reorders the file on the next write.
+    pub(crate) fn task_insert(&mut self, idx: usize, task: Task) {
+        self.text.on_insert(idx);
+        self.tasks.insert(idx, task);
+    }
+
+    /// Remove the task at `idx`, keeping text anchors in step.
+    pub(crate) fn task_remove(&mut self, idx: usize) -> Task {
+        self.text.on_remove(idx);
+        self.tasks.remove(idx)
+    }
+
+    /// Append a task. Anchors are untouched: a task added at the end lands
+    /// after the document's trailing prose, which is where people expect it.
+    pub(crate) fn task_push(&mut self, task: Task) {
+        self.tasks.push(task);
     }
 
     pub fn archive(&self) -> &Archive {

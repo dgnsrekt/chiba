@@ -14,9 +14,12 @@ use crate::todo::{self, Task};
 /// methods.
 pub struct Archive {
     pub(crate) tasks: Vec<Task>,
+    /// Non-task lines of the archive file. `done.md` is a markdown document
+    /// like any other; rewriting it must not eat the user's headings.
+    pub(crate) text: todo::Text,
     pub(crate) path: PathBuf,
     pub(crate) last_disk: String,
-    pub(crate) loader: Option<Receiver<(String, Vec<Task>)>>,
+    pub(crate) loader: Option<Receiver<(String, todo::Doc)>>,
 }
 
 fn done_path(todo_path: &Path) -> PathBuf {
@@ -38,14 +41,15 @@ impl Archive {
     /// `DONE_FILE` that isn't a sibling of the todo file).
     pub fn spawn_at(path: PathBuf) -> Self {
         let loader_path = path.clone();
-        let (tx, rx) = mpsc::sync_channel::<(String, Vec<Task>)>(1);
+        let (tx, rx) = mpsc::sync_channel::<(String, todo::Doc)>(1);
         thread::spawn(move || {
             let body = std::fs::read_to_string(&loader_path).unwrap_or_default();
-            let parsed = todo::parse_file(&body);
+            let parsed = todo::parse_doc(&body);
             let _ = tx.send((body, parsed));
         });
         Self {
             tasks: Vec::new(),
+            text: todo::Text::default(),
             path,
             last_disk: String::new(),
             loader: Some(rx),
@@ -61,9 +65,10 @@ impl Archive {
     /// Like [`Archive::load_sync`] but for an explicit `done.txt` path.
     pub fn load_sync_at(path: PathBuf) -> Self {
         let body = std::fs::read_to_string(&path).unwrap_or_default();
-        let tasks = todo::parse_file(&body);
+        let doc = todo::parse_doc(&body);
         Self {
-            tasks,
+            tasks: doc.tasks,
+            text: doc.text,
             path,
             last_disk: body,
             loader: None,
@@ -76,6 +81,7 @@ impl Archive {
     pub(crate) fn for_test(tasks: Vec<Task>, last_disk: String, path: PathBuf) -> Self {
         Self {
             tasks,
+            text: todo::Text::default(),
             path,
             last_disk,
             loader: None,
@@ -121,7 +127,9 @@ impl Store {
             Err(e) => return ArchiveRefresh::Error(e),
         };
         if body != self.archive.last_disk {
-            self.archive.tasks = todo::parse_file(&body);
+            let doc = todo::parse_doc(&body);
+            self.archive.tasks = doc.tasks;
+            self.archive.text = doc.text;
             self.archive.last_disk = body;
             self.archive.loader = None;
             return ArchiveRefresh::Reloaded;
@@ -137,9 +145,10 @@ impl Store {
         let mut changed = false;
         if let Some(rx) = &self.archive.loader {
             match rx.try_recv() {
-                Ok((body, tasks)) => {
+                Ok((body, doc)) => {
                     self.archive.last_disk = body;
-                    self.archive.tasks = tasks;
+                    self.archive.tasks = doc.tasks;
+                    self.archive.text = doc.text;
                     self.archive.loader = None;
                     changed = true;
                 }
@@ -168,7 +177,9 @@ impl Store {
         if on_disk == self.archive.last_disk {
             return false;
         }
-        self.archive.tasks = todo::parse_file(&on_disk);
+        let doc = todo::parse_doc(&on_disk);
+        self.archive.tasks = doc.tasks;
+        self.archive.text = doc.text;
         self.archive.last_disk = on_disk;
         true
     }
@@ -197,17 +208,32 @@ impl Store {
         if let Err(e) = todo::write_atomic(&self.archive.path, &combined) {
             return ArchiveOutcome::Error(StoreError::ArchiveIo(e));
         }
-        let remaining: Vec<Task> = self.tasks.iter().filter(|t| !t.done).cloned().collect();
-        let remaining_body = todo::serialize_doc(&remaining, &self.text);
+        // Drop the archived tasks descending so every removal keeps the text
+        // anchors in step; a bulk `retain` would strand them.
+        let snapshot = (self.tasks.clone(), self.text.clone());
+        let done_idx: Vec<usize> = self
+            .tasks
+            .iter()
+            .enumerate()
+            .filter(|(_, t)| t.done)
+            .map(|(i, _)| i)
+            .rev()
+            .collect();
+        for idx in done_idx {
+            self.task_remove(idx);
+        }
+        let remaining_body = todo::serialize_doc(&self.tasks, &self.text);
         if let Err(e) = todo::write_atomic(&self.file_path, &remaining_body) {
             let _ = todo::write_atomic(&self.archive.path, &previous_archive_body);
+            (self.tasks, self.text) = snapshot;
             return ArchiveOutcome::Error(StoreError::Write(e));
         }
-        self.push_history();
         let count = to_move.len();
-        self.tasks = remaining;
+        self.history.push(snapshot);
         self.last_disk = remaining_body;
-        self.archive.tasks = todo::parse_file(&combined);
+        let doc = todo::parse_doc(&combined);
+        self.archive.tasks = doc.tasks;
+        self.archive.text = doc.text;
         self.archive.last_disk = combined;
         self.archive.loader = None;
         ArchiveOutcome::Archived { count }
@@ -232,22 +258,22 @@ impl Store {
         if let Err(e) = task.unmark_done() {
             return UnarchiveOutcome::Error(StoreError::Parse(e));
         }
-        let new_archive: Vec<Task> = self
-            .archive
-            .tasks
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| *i != archive_idx)
-            .map(|(_, t)| t.clone())
-            .collect();
-        let archive_body = todo::serialize(&new_archive);
+        let mut new_archive = self.archive.tasks.clone();
+        new_archive.remove(archive_idx);
+        // Keep the archive's own prose: `done.md` is a markdown document, and
+        // rewriting it from tasks alone is the exact data loss this fork exists
+        // to prevent.
+        let mut new_text = self.archive.text.clone();
+        new_text.on_remove(archive_idx);
+        let archive_body = todo::serialize_doc(&new_archive, &new_text);
         if let Err(e) = todo::write_atomic(&self.archive.path, &archive_body) {
             return UnarchiveOutcome::Error(StoreError::ArchiveIo(e));
         }
         self.archive.tasks = new_archive;
+        self.archive.text = new_text;
         self.archive.last_disk = archive_body;
         self.push_history();
-        self.tasks.push(task);
+        self.task_push(task);
         if let Err(e) = self.persist() {
             return UnarchiveOutcome::Error(e);
         }
@@ -266,19 +292,19 @@ impl Store {
         if archive_idx >= self.archive.tasks.len() {
             return ArchiveDeleteOutcome::OutOfRange;
         }
-        let new_archive: Vec<Task> = self
-            .archive
-            .tasks
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| *i != archive_idx)
-            .map(|(_, t)| t.clone())
-            .collect();
-        let archive_body = todo::serialize(&new_archive);
+        let mut new_archive = self.archive.tasks.clone();
+        new_archive.remove(archive_idx);
+        // Keep the archive's own prose: `done.md` is a markdown document, and
+        // rewriting it from tasks alone is the exact data loss this fork exists
+        // to prevent.
+        let mut new_text = self.archive.text.clone();
+        new_text.on_remove(archive_idx);
+        let archive_body = todo::serialize_doc(&new_archive, &new_text);
         if let Err(e) = todo::write_atomic(&self.archive.path, &archive_body) {
             return ArchiveDeleteOutcome::Error(StoreError::ArchiveIo(e));
         }
         self.archive.tasks = new_archive;
+        self.archive.text = new_text;
         self.archive.last_disk = archive_body;
         ArchiveDeleteOutcome::Deleted
     }
@@ -503,5 +529,54 @@ mod tests {
         let _ = std::fs::remove_dir_all(missing_parent.parent().unwrap());
         store.file_path = missing_parent;
         assert!(store.persist().is_err());
+    }
+
+    #[test]
+    fn unarchive_preserves_prose_in_the_done_file() {
+        let dir = dir_for("done-prose");
+        let todo_path = dir.join("todo.md");
+        let done_path = dir.join("done.md");
+        let done_body = "# Archived\n\nStuff I finished.\n\n\
+                         - [x] 2026-05-01 2026-04-01 first\n\
+                         - [x] 2026-05-02 2026-04-02 second\n";
+        std::fs::write(&todo_path, "- [ ] live\n").unwrap();
+        std::fs::write(&done_path, done_body).unwrap();
+        let mut store = Store::new(todo_path, "- [ ] live\n".to_string(), "2026-05-06".into());
+        wait_archive_loaded(&mut store);
+        assert_eq!(store.archive.len(), 2);
+
+        store.unarchive(0);
+
+        let after = std::fs::read_to_string(&done_path).unwrap();
+        assert!(after.contains("# Archived"), "heading eaten:\n{after}");
+        assert!(after.contains("Stuff I finished."), "prose eaten:\n{after}");
+        assert!(!after.contains("first"), "unarchived task should be gone");
+        assert!(
+            after.contains("second"),
+            "other archived task should remain"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn archive_delete_preserves_prose_in_the_done_file() {
+        let dir = dir_for("done-prose-del");
+        let todo_path = dir.join("todo.md");
+        let done_path = dir.join("done.md");
+        std::fs::write(&todo_path, "- [ ] live\n").unwrap();
+        std::fs::write(
+            &done_path,
+            "# Archived\n\n- [x] 2026-05-01 2026-04-01 first\n",
+        )
+        .unwrap();
+        let mut store = Store::new(todo_path, "- [ ] live\n".to_string(), "2026-05-06".into());
+        wait_archive_loaded(&mut store);
+
+        store.archive_delete(0);
+
+        let after = std::fs::read_to_string(&done_path).unwrap();
+        assert!(after.contains("# Archived"), "heading eaten:\n{after}");
+        assert!(!after.contains("first"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
