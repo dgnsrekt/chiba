@@ -43,7 +43,8 @@ pub const DEFAULT_BULLET: char = '-';
 #[derive(Debug, Clone)]
 pub struct Task {
     /// Leading whitespace of the source line, preserved verbatim. Carries no
-    /// meaning in chiba-flat — nesting is direction B (see spec-vault).
+    /// meaning in chiba-flat — nesting is direction B, see
+    /// `docs/design/spec-vault.md`.
     pub indent: String,
     /// Which list bullet this line was written with: `-`, `*`, or `+`.
     pub bullet: char,

@@ -464,7 +464,8 @@ it verbatim and writes it back byte-for-byte. A `- [ ]` inside a fenced code
 block is not a task.
 
 Leading indentation is preserved but carries no meaning — chiba-flat has no
-subtasks. Nesting is a separate design (see the project's `spec-vault.md`).
+subtasks. Nesting is a separate design — see
+[`docs/design/spec-vault.md`](docs/design/spec-vault.md).
 
 The body after the checkbox is todo.txt, unchanged:
 
@@ -659,6 +660,17 @@ plain `cargo` commands if you don't use [mise](https://mise.jdx.dev/).
 - [tuxedo](https://github.com/webstonehq/tuxedo) by Webstone — chiba is a fork of it; the UI, the natural-language parser, and the CLI are all theirs.
 - [todo.txt](http://todotxt.org/) by Gina Trapani — the task grammar chiba still uses inside each checkbox.
 - [ratatui](https://ratatui.rs/) and [crossterm](https://github.com/crossterm-rs/crossterm) — the rendering and terminal-input crates chiba is built on.
+
+## Design
+
+How chiba's document model works and why, plus the fork's decision record:
+
+- [`docs/design/spec-flat.md`](docs/design/spec-flat.md) — what chiba is: one
+  markdown file, prose preserved, anchoring rules
+- [`docs/design/spec-vault.md`](docs/design/spec-vault.md) — the multi-file
+  vault design that was *not* built, and why
+- [`docs/design/directions.md`](docs/design/directions.md) — the decision
+  between the two
 
 ## Roadmap
 
