@@ -1,32 +1,35 @@
-# tuxedo
+# chiba
 
-A fast, keyboard-driven terminal UI for [todo.txt](http://todotxt.org/).
+A fast, keyboard-driven terminal UI for markdown task lists.
 Vim-style bindings, atomic writes, instant external-edit detection, and five
 hand-tuned themes — all in a single static binary.
 
+chiba is a markdown-native fork of [chiba](https://github.com/dgnsrekt/chiba).
+Same UI, same natural-language add, same CLI — but it reads and writes
+`- [ ]` checkboxes in a real markdown file, and it never destroys the headings,
+prose, or code fences around them.
+
 ```sh
-brew install tuxedo
+cargo install --git https://github.com/dgnsrekt/chiba
 ```
 
-[![CI](https://github.com/webstonehq/tuxedo/actions/workflows/ci.yml/badge.svg)](https://github.com/webstonehq/tuxedo/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/webstonehq/tuxedo?logo=github)](https://github.com/webstonehq/tuxedo/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](#license)
 [![Rust](https://img.shields.io/badge/rust-2024-orange.svg?logo=rust)](https://www.rust-lang.org)
 
-![tuxedo demo](docs/demo.gif)
-
-For a more in-depth walkthrough, please watch [this video](https://www.youtube.com/watch?v=mT1tg6SQ_Ag) by [@IogaMaster](https://github.com/IogaMaster).
+The upstream [demo video](https://www.youtube.com/watch?v=mT1tg6SQ_Ag) by
+[@IogaMaster](https://github.com/IogaMaster) still shows the UI accurately —
+only the file format differs.
 
 ## Highlights
 
-- **Pure todo.txt.** Reads and writes the [standard format](https://github.com/todotxt/todo.txt) — every line is plain text you can edit with anything else.
-- **TUI and CLI in one binary.** Run `tuxedo` for the interactive UI, or `tuxedo <command>` for a [todo.txt-cli](https://github.com/todotxt/todo.txt-cli)-compatible command line (`add`, `ls`, `do`, `pri`, `archive`, …) — scriptable, with `--json` output and `$TODO_DIR` / `$TODO_FILE` / `$DONE_FILE` support.
-- **Natural-language add.** Type prose into the add prompt — `Pay rent monthly on the first, show 3 days before due, project home` — and tuxedo rewrites it to canonical todo.txt for you to review and save. Local, offline, no AI service.
-- **Phone capture.** Press `s` for a QR pointing at a tiny PWA on your machine's LAN — type tasks from your phone and they appear in the list. Captures land in a sibling `inbox.txt` first, so any tool that can append a line (shell, iOS Shortcuts, cron) is also a capture source.
+- **Pure markdown.** Tasks are ordinary `- [ ]` / `- [x]` lines. Headings, prose, code fences and front matter around them are carried through byte-for-byte — GitHub and Obsidian render the file as a checklist.
+- **TUI and CLI in one binary.** Run `chiba` for the interactive UI, or `chiba <command>` for a [todo.txt-cli](https://github.com/todotxt/todo.txt-cli)-compatible command line (`add`, `ls`, `do`, `pri`, `archive`, …) — scriptable, with `--json` output and `$CHIBA_DIR` / `$CHIBA_FILE` / `$DONE_FILE` support (todo.txt-cli's `$TODO_*` vars work as fallbacks).
+- **Natural-language add.** Type prose into the add prompt — `Pay rent monthly on the first, show 3 days before due, project home` — and chiba rewrites it to canonical form for you to review and save. Local, offline, no AI service.
+- **Phone capture.** Press `s` for a QR pointing at a tiny PWA on your machine's LAN — type tasks from your phone and they appear in the list. Captures land in a sibling `inbox.md` first, so any tool that can append a line (shell, iOS Shortcuts, cron) is also a capture source.
 - **Vim keys, no surprises.** `j` / `k` to move, `dd` to delete, `gg` / `G` to jump, `u` to undo (50 levels), chord prompts (`gg`, `dd`, `fp`, `fc`) with a 600 ms window.
 - **Command palette.** `:` or `Ctrl-P` opens a fuzzy palette over every action — type a few letters, hit Enter. Same matcher as `/` search, ranked so start-of-label hits beat word-boundary hits beat mid-word hits.
-- **Atomic, sync-friendly writes.** Every change goes through write-temp-then-rename. If another process — Dropbox, an editor, a script — modifies the file, tuxedo reloads on the next keypress (or within ~250 ms while idle) and flashes a notice.
-- **Sibling-file archive.** `A` moves completed tasks to `done.txt` next to your file, atomically.
+- **Atomic, sync-friendly writes.** Every change goes through write-temp-then-rename. If another process — Dropbox, an editor, a script — modifies the file, chiba reloads on the next keypress (or within ~250 ms while idle) and flashes a notice.
+- **Sibling-file archive.** `A` moves completed tasks to `done.md` next to your file, atomically.
 - **Filter, sort, multi-select.** Cycle by `+project` or `@context`, sort by priority / due / file order, and bulk-complete or bulk-delete in visual mode.
 - **Saved searches.** Name the active `/`-search with `fs`, then recall it any time by cycling saved filters with `ff`. Stored as plain `filter.<name>` lines in the config — hand-editable like everything else.
 - **Five themes, three densities.** Cycle with `T` and `D`. Choices persist across runs and hot-reload when you edit `config.toml` externally.
@@ -63,15 +66,15 @@ For a more in-depth walkthrough, please watch [this video](https://www.youtube.c
 
 ### Custom themes
 
-Beyond the built-ins, tuxedo loads any `*.toml` file you drop in
-`${XDG_CONFIG_HOME:-$HOME/.config}/tuxedo/themes/`. Each one joins the `T`
+Beyond the built-ins, chiba loads any `*.toml` file you drop in
+`${XDG_CONFIG_HOME:-$HOME/.config}/chiba/themes/`. Each one joins the `T`
 picker in sorted filename order. Ready-made themes live in
 [`docs/themes/`](docs/themes) — copy one in and press `T`:
 
 ```sh
-mkdir -p ~/.config/tuxedo/themes
-curl -o ~/.config/tuxedo/themes/gruvbox-dark-soft.toml \
-  https://raw.githubusercontent.com/webstonehq/tuxedo/main/docs/themes/gruvbox-dark-soft.toml
+mkdir -p ~/.config/chiba/themes
+curl -o ~/.config/chiba/themes/gruvbox-dark-soft.toml \
+  https://raw.githubusercontent.com/dgnsrekt/chiba/main/docs/themes/gruvbox-dark-soft.toml
 ```
 
 <details>
@@ -123,104 +126,104 @@ another theme is skipped with a warning at startup.
 ### Homebrew (macOS, Linux)
 
 ```sh
-brew install tuxedo
+brew install chiba
 ```
 
 ### Prebuilt binaries
 
-Download the archive for your platform from the [latest release](https://github.com/webstonehq/tuxedo/releases/latest) and put `tuxedo` on your `PATH`.
+Download the archive for your platform from the [latest release](https://github.com/dgnsrekt/chiba/releases/latest) and put `chiba` on your `PATH`.
 
 Targets: `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-apple-darwin`, `aarch64-apple-darwin`, `x86_64-pc-windows-msvc`. Each archive ships with a `.sha256` checksum.
 
 ### From source
 
 ```sh
-cargo install --git https://github.com/webstonehq/tuxedo
+cargo install --git https://github.com/dgnsrekt/chiba
 ```
 
 Or clone and build:
 
 ```sh
-git clone https://github.com/webstonehq/tuxedo
-cd tuxedo
+git clone https://github.com/dgnsrekt/chiba
+cd chiba
 cargo build --release
-./target/release/tuxedo [FILE]
+./target/release/chiba [FILE]
 ```
 
 Requires the Rust 2024 edition (recent stable toolchain).
 
 ## Usage
 
-`tuxedo` is two things in one binary: an interactive TUI, and a one-shot
+`chiba` is two things in one binary: an interactive TUI, and a one-shot
 command line. With no subcommand it launches the TUI; with a recognized
 subcommand it runs the [command line](#command-line-interface) and exits.
 
 ```sh
-tuxedo [FILE]      # launch the TUI on FILE (created if missing)
-tuxedo             # TUI on the default file (see resolution below)
-tuxedo --sample    # open the bundled sample file in the temp dir
-tuxedo <command>   # run a one-shot CLI command — see "Command-line interface"
-tuxedo update      # print upgrade instructions for your install
-tuxedo --help
-tuxedo --version
+chiba [FILE]      # launch the TUI on FILE (created if missing)
+chiba             # TUI on the default file (see resolution below)
+chiba --sample    # open the bundled sample file in the temp dir
+chiba <command>   # run a one-shot CLI command — see "Command-line interface"
+chiba update      # print upgrade instructions for your install
+chiba --help
+chiba --version
 ```
 
-When a newer release is available, the status bar shows `↑ <version> (tuxedo
+When a newer release is available, the status bar shows `↑ <version> (chiba
 update)` next to the version. The check runs in the background, is cached at
-`$XDG_CACHE_HOME/tuxedo/latest_version.json` for 24 h, and fails silently
+`$XDG_CACHE_HOME/chiba/latest_version.json` for 24 h, and fails silently
 when offline. Set `TUXEDO_NO_UPDATE_CHECK=1` to disable.
 
-### Which file tuxedo opens
+### Which file chiba opens
 
 Both the TUI and the CLI resolve the todo file the same way, in order:
 
 1. An explicit `FILE` argument (TUI only).
-2. `$TODO_FILE`, if set.
-3. `$TODO_DIR/todo.txt`, if `$TODO_DIR` is set.
-4. `./todo.txt` in the current directory, if it exists.
+2. `$CHIBA_FILE`, then `$TODO_FILE`, if set.
+3. `$CHIBA_DIR/todo.md`, then `$TODO_DIR/todo.md`.
+4. `./todo.md` in the current directory, if it exists.
 5. Otherwise the TUI shows a first-run prompt — press `c` to create
-   `./todo.txt` here, or `s` to open a sample todo.txt in the system temp
+   `./todo.md` here, or `s` to open a sample file in the system temp
    directory so you can poke around without committing to a path. (The
    one-shot CLI is non-interactive and uses the sample directly.)
 
-The archive file is `$DONE_FILE` if set, otherwise a sibling `done.txt` next
+The archive file is `$DONE_FILE` if set, otherwise a sibling `done.md` next
 to the todo file. The file (and any missing parent directories) is created on
-first use. These are the same `TODO_DIR` / `TODO_FILE` / `DONE_FILE` variables
-todo.txt-cli uses, so an existing `todo.cfg` works as-is:
+first use. The `TODO_*` fallbacks mean an existing todo.txt-cli `todo.cfg`
+keeps working — it just points chiba at the same directory:
 
 ```sh
-export TODO_DIR="$HOME/Documents/todo"
-export TODO_FILE="$TODO_DIR/todo.txt"
-export DONE_FILE="$TODO_DIR/done.txt"
+export CHIBA_DIR="$HOME/Documents/todo"
+export CHIBA_FILE="$CHIBA_DIR/todo.md"
+export DONE_FILE="$CHIBA_DIR/done.md"
 ```
 
 Edits are persisted on every change via atomic write (write `.tmp`, rename).
 
 If the file changes on disk (another editor, a sync client, a script),
-tuxedo notices on the next keypress, or within ~250 ms while idle, and
+chiba notices on the next keypress, or within ~250 ms while idle, and
 reloads. The keystroke that triggered the reload is consumed — press it
 again to act on the fresh state — and the status bar flashes a notice.
 
-Pressing `A` appends every completed task to a sibling `done.txt` and
-removes them from the working file (atomically: `done.txt` is written
+Pressing `A` appends every completed task to a sibling `done.md` and
+removes them from the working file (atomically: `done.md` is written
 before the originals are dropped). `a` toggles the archive view so you
 can browse, un-archive, or permanently delete past tasks.
 
 ## Command-line interface
 
-When the first argument is a recognized subcommand, tuxedo runs a one-shot
+When the first argument is a recognized subcommand, chiba runs a one-shot
 command instead of launching the TUI. The surface mirrors
 [todo.txt-cli](https://github.com/todotxt/todo.txt-cli/wiki/Usage) — same
 commands, aliases, task numbering, and output — so it's a drop-in for scripts
 and aliases.
 
 ```sh
-tuxedo add "Pay rent +home @bank due:2026-07-01"   # or: tuxedo a "..."
-tuxedo ls @bank                                     # filter by context
-tuxedo do 3                                          # mark task 3 complete
-tuxedo pri 3 A                                        # set priority
-tuxedo archive                                        # move done tasks to done.txt
-tuxedo ls --json | jq .                              # machine-readable output
+chiba add "Pay rent +home @bank due:2026-07-01"   # or: chiba a "..."
+chiba ls @bank                                     # filter by context
+chiba do 3                                          # mark task 3 complete
+chiba pri 3 A                                        # set priority
+chiba archive                                        # move done tasks to done.md
+chiba ls --json | jq .                              # machine-readable output
 ```
 
 | Command | Aliases | Arguments | Description |
@@ -252,17 +255,17 @@ shown` footer, matching todo.txt-cli.
   print an array of task objects; mutating commands print a result object.
   No prompts or footers are written in this mode.
 
-Global flags may appear before the subcommand (`tuxedo -f del 3`).
+Global flags may appear before the subcommand (`chiba -f del 3`).
 
 **Differences from todo.txt-cli:** `do` marks a task complete but does **not**
 auto-archive it — completed tasks stay in the file until you run `archive` (or
-press `A` in the TUI), matching tuxedo's interactive model. There is no `-d`
+press `A` in the TUI), matching chiba's interactive model. There is no `-d`
 config-file flag; configure paths with the environment variables above.
 
 ## Keybindings
 
 Custom normal-mode keybindings can be added in
-`${XDG_CONFIG_HOME:-$HOME/.config}/tuxedo/keybinds.toml`:
+`${XDG_CONFIG_HOME:-$HOME/.config}/chiba/keybinds.toml`:
 
 The block below lists every rebindable action with the key it ships with —
 copy it, then change the keys you care about and delete the rest (anything you
@@ -404,7 +407,7 @@ The modal keys below apply in Normal mode:
 | `x` / `dd` (in visual) | bulk-complete / bulk-delete the selection |
 | `l` | list (default) view |
 | `a` | toggle archive view |
-| `A` | archive completed tasks → `done.txt` |
+| `A` | archive completed tasks → `done.md` |
 | `H` | toggle showing done tasks in the main list |
 | `o` | open the current task's existing `note:<path>` in `$VISUAL` / `$EDITOR` |
 | `O` | create the current task's note if needed, then open it |
@@ -438,13 +441,31 @@ any terminal that supports it (kitty, alacritty, wezterm, iTerm2, foot,
 modern xterm; tmux when `set -g set-clipboard on`). Older terminals will
 silently ignore the keystroke.
 
-## todo.txt format
+## File format
 
-Standard [todo.txt](https://github.com/todotxt/todo.txt) lines:
+A chiba file is markdown. Tasks are checkbox list items; everything else is
+left alone.
 
+```markdown
+# Work
+
+Notes, headings, and code fences are carried through untouched.
+
+- [ ] (A) 2026-04-28 Call dentist @phone +health due:2026-05-08
+- [x] 2026-05-05 2026-05-01 Submit expense report +work
+- [ ] Pay rent due:2026-05-15 rec:+1m t:-3d
 ```
-(A) 2026-04-28 Call dentist @phone +health due:2026-05-08
-```
+
+A line is a task when it matches `<bullet> [ ] <body>` — bullet `-`, `*` or
+`+`, box `[ ]`, `[x]` or `[X]`. Any other line (heading, prose, blank, fenced
+code, front matter, ordered list, blockquote) is **passthrough**: chiba stores
+it verbatim and writes it back byte-for-byte. A `- [ ]` inside a fenced code
+block is not a task.
+
+Leading indentation is preserved but carries no meaning — chiba-flat has no
+subtasks. Nesting is a separate design (see the project's `spec-vault.md`).
+
+The body after the checkbox is todo.txt, unchanged:
 
 - `(A)` — priority, A through Z (omit for none)
 - `2026-04-28` — creation date in ISO 8601
@@ -455,7 +476,9 @@ Standard [todo.txt](https://github.com/todotxt/todo.txt) lines:
   note actions (`o` / `O`): relative paths resolve under `notes_dir`, then
   `$NOTES_DIR`, then `~/notes`. Keys you'd rather not see can be hidden from
   the rows via [`hide_keys`](#hiding-keyvalue-tags)
-- `rec:[+]N{d,b,w,m,y}` — recurrence; on completion (`x`), tuxedo inserts
+- `#tag` — also a context, the markdown-native spelling of `@context`.
+  Both forms round-trip as written; chiba never rewrites one into the other
+- `rec:[+]N{d,b,w,m,y}` — recurrence; on completion, chiba inserts
   a fresh copy of the task with `due:` advanced by `N` days, business
   days (Mon–Fri), weeks, months, or years. The `+` prefix means
   *strict* recurrence anchored to the previous due date (e.g.
@@ -463,27 +486,43 @@ Standard [todo.txt](https://github.com/todotxt/todo.txt) lines:
   computed from the completion date (e.g. `rec:1w` for "water plants
   one week after I last did").
 
-Completed tasks are prefixed with `x ` and a completion date:
+Completion lives in the checkbox, not in the body. A completed task carries
+its completion date first, then its creation date:
 
-```
-x 2026-05-05 2026-05-01 Submit expense report +work
+```markdown
+- [x] 2026-05-05 2026-05-01 Submit expense report +work
 ```
 
 Recurring example:
 
-```
-2026-05-09 Pay rent due:2026-05-15 rec:+1m
+```markdown
+- [ ] 2026-05-09 Pay rent due:2026-05-15 rec:+1m
 ```
 
 Pressing `x` on the line above marks the original complete *and* inserts
-`2026-05-09 Pay rent due:2026-06-15 rec:+1m`. `u` undoes both at once.
+`- [ ] 2026-05-09 Pay rent due:2026-06-15 rec:+1m`. `u` undoes both at once.
+
+### Coming from todo.txt
+
+```sh
+chiba import todo.txt          # writes todo.md
+chiba export todo.md out.txt   # back again; reports any prose it had to drop
+```
+
+`import` is idempotent and lossless. `export` is lossy by nature — headings and
+prose have no todo.txt equivalent — so it prints how many lines it dropped
+rather than dropping them quietly.
+
+chiba reads `$CHIBA_FILE` / `$CHIBA_DIR`, falling back to `$TODO_FILE` /
+`$TODO_DIR`, so an existing todo.txt-cli environment keeps pointing at the same
+directory.
 
 ## Natural-language add
 
 Press `n` to open the add prompt. Type the task in plain English. When the
 buffer contains recognized phrases (dates, weekdays, recurrence, project /
 context names, priority), pressing Enter rewrites the draft into canonical
-todo.txt — review or tweak it, then Enter again to save.
+form — review or tweak it, then Enter again to save.
 
 | What you type | What lands in the draft |
 | --- | --- |
@@ -503,7 +542,7 @@ Recognized vocabulary:
 - **Priority** — `high priority` → A, `medium priority` → B, `low priority` → C, or `priority A`.
 
 Parsing is rule-based and runs locally — no network calls, no API key. If
-the buffer already contains a `due:`, `rec:`, or `t:` token, tuxedo assumes
+the buffer already contains a `due:`, `rec:`, or `t:` token, chiba assumes
 you've typed canonical form and saves it directly on the first Enter.
 
 ## Phone capture
@@ -513,23 +552,24 @@ display a QR code for it. Scan it from your phone — any modern browser — to
 get a minimal PWA you can install to your home screen. Type a task, tap
 Add, and within a tick it shows up in your task list.
 
-Captures never touch `todo.txt` directly. They land in a sibling
-`inbox.txt`, which tuxedo drains on every external-change poll: each line
+Captures never touch `todo.md` directly. They land in a sibling
+`inbox.md`, which chiba drains on every external-change poll: each line
 is run through the same natural-language pipeline as the `n` add prompt,
-given a creation date if missing, and merged into `todo.txt` as a single
-undoable batch (`u` rolls back the whole drain at once).
+given a creation date if missing, wrapped in a checkbox, and merged into
+`todo.md` as a single undoable batch (`u` rolls back the whole drain at once).
 
-That makes `inbox.txt` a general capture endpoint, not just a PWA backend.
+That makes `inbox.md` a general capture endpoint, not just a PWA backend.
+Lines you append there are plain text, not markdown — chiba adds the `- [ ]`.
 Anything that can append a line works as a producer:
 
 ```sh
-echo "Refill prescription tomorrow" >> ~/notes/inbox.txt
-echo "Call dentist due:2026-06-01" >> ~/notes/inbox.txt
+echo "Refill prescription tomorrow" >> ~/notes/inbox.md
+echo "Call dentist due:2026-06-01" >> ~/notes/inbox.md
 ```
 
 Shell aliases, iOS Shortcuts writing to a synced folder, cron jobs,
 email-to-file gateways — pick your producer. As long as it appends a line
-to the sibling `inbox.txt`, tuxedo picks it up.
+to the sibling `inbox.md`, chiba picks it up.
 
 The server:
 
@@ -546,7 +586,7 @@ The server:
   WiFi anyone passive-sniffing can recover the token. To rotate, delete
   `share_token` from `config.toml` and press `s` again.
 
-Drains from tuxedo-managed producers are crash-safe: the capture server
+Drains from chiba-managed producers are crash-safe: the capture server
 holds the same advisory lock as the TUI's rename-and-merge, and any
 staging file left over from an interrupted drain is replayed on the
 next session. Plain shell appends are useful for lightweight capture,
@@ -555,7 +595,7 @@ if a producer must be serialized with the TUI drain.
 
 ## Configuration
 
-Persisted to `${XDG_CONFIG_HOME:-$HOME/.config}/tuxedo/config.toml`. Cycling
+Persisted to `${XDG_CONFIG_HOME:-$HOME/.config}/chiba/config.toml`. Cycling
 theme, density, or sort, and toggling sidebars / line-numbers / done-visibility
 all update the file. Unknown keys are ignored, so older binaries don't break
 on newer files.
@@ -578,8 +618,8 @@ round-trip as plain text, so you can add, rename, or delete them by editing
 `<name>` may not contain `=`.
 
 Task-note actions resolve relative `note:<path>` tokens under `notes_dir`.
-If `notes_dir` is not set, tuxedo falls back to `$NOTES_DIR` and then
-`~/notes`. `O` creates missing notes under `projects/tuxedo-tasks/` using a
+If `notes_dir` is not set, chiba falls back to `$NOTES_DIR` and then
+`~/notes`. `O` creates missing notes under `projects/chiba-tasks/` using a
 small Markdown template and appends the generated `note:<path>` token to the
 task; `o` only opens an existing linked note.
 
@@ -615,12 +655,13 @@ plain `cargo` commands if you don't use [mise](https://mise.jdx.dev/).
 
 ## Acknowledgments
 
-- [todo.txt](http://todotxt.org/) by Gina Trapani — the format that makes a tool like this possible.
-- [ratatui](https://ratatui.rs/) and [crossterm](https://github.com/crossterm-rs/crossterm) — the rendering and terminal-input crates tuxedo is built on.
+- [tuxedo](https://github.com/webstonehq/tuxedo) by Webstone — chiba is a fork of it; the UI, the natural-language parser, and the CLI are all theirs.
+- [todo.txt](http://todotxt.org/) by Gina Trapani — the task grammar chiba still uses inside each checkbox.
+- [ratatui](https://ratatui.rs/) and [crossterm](https://github.com/crossterm-rs/crossterm) — the rendering and terminal-input crates chiba is built on.
 
 ## Roadmap
 
-Planned and in-flight work lives in [`todo.txt`](./todo.txt) — eat your own dog food.
+Planned and in-flight work lives in [`todo.md`](./todo.md) — eat your own dog food.
 
 ## Contributing
 

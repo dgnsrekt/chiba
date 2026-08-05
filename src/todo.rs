@@ -36,8 +36,21 @@ impl std::fmt::Display for TagError {
     }
 }
 
+/// Bullet used for tasks chiba creates itself. Parsed tasks keep whatever
+/// bullet they were written with.
+pub const DEFAULT_BULLET: char = '-';
+
 #[derive(Debug, Clone)]
 pub struct Task {
+    /// Leading whitespace of the source line, preserved verbatim. Carries no
+    /// meaning in chiba-flat — nesting is direction B (see spec-vault).
+    pub indent: String,
+    /// Which list bullet this line was written with: `-`, `*`, or `+`.
+    pub bullet: char,
+    /// The canonical todo.txt body — *without* the markdown wrapper, but
+    /// *with* the leading `x ` when done. Keeping `raw` in todo.txt form is
+    /// what lets every mutation, tokenizer, and filter inherited from chiba
+    /// keep working untouched; the wrapper is re-applied at serialize time.
     pub raw: String,
     pub clean_raw: String,
     pub done: bool,
@@ -89,7 +102,11 @@ pub fn parse_line(raw: &str) -> Result<Task, ParseError> {
     }
 
     let projects = collect_tokens(rest, '+');
-    let contexts = collect_tokens(rest, '@');
+    // `#tag` is accepted as an alias for `@context` — it's what people already
+    // type in markdown. Both forms land in the same list and round-trip as
+    // whatever the user wrote; chiba never rewrites one into the other.
+    let mut contexts = collect_tokens(rest, '@');
+    contexts.extend(collect_tokens(rest, '#'));
     let due = find_kv(rest, "due");
     let rec = find_kv(rest, "rec");
     let threshold = find_kv(rest, "t");
@@ -97,6 +114,8 @@ pub fn parse_line(raw: &str) -> Result<Task, ParseError> {
     let clean_raw = body_after_quoted_kv(line);
 
     Ok(Task {
+        indent: String::new(),
+        bullet: DEFAULT_BULLET,
         raw: line.to_string(),
         clean_raw,
         done,
@@ -218,17 +237,176 @@ fn is_valid_key(k: &str) -> bool {
     chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
-pub fn parse_file(s: &str) -> Vec<Task> {
-    s.lines().filter_map(|line| parse_line(line).ok()).collect()
+/// A parsed markdown document: the tasks, plus every other line pinned to the
+/// absolute output position it was found at.
+///
+/// Non-task lines (headings, prose, blanks, code fences) are carried verbatim
+/// and are invisible to the rest of chiba — the point is only that writing the
+/// file back never destroys them. chiba's `parse_file` dropped them silently
+/// via `filter_map(...ok())`, which is exactly what makes it unusable on a real
+/// markdown file.
+#[derive(Debug, Clone, Default)]
+pub struct Doc {
+    pub tasks: Vec<Task>,
+    /// `(absolute line index, text)`, ascending. Pinned by position: adding or
+    /// removing tasks shifts tasks around these lines rather than moving them.
+    pub text: Vec<(usize, String)>,
 }
 
+/// Split a markdown task line into `(indent, bullet, done, body)`.
+/// Returns `None` for anything that isn't `<indent><bullet> [ ] <body>`.
+fn split_checkbox(line: &str) -> Option<(&str, char, bool, &str)> {
+    let trimmed = line.trim_start();
+    let indent = &line[..line.len() - trimmed.len()];
+    let b = trimmed.as_bytes();
+    if b.len() < 5 {
+        return None;
+    }
+    let bullet = match b[0] {
+        c @ (b'-' | b'*' | b'+') => c as char,
+        _ => return None,
+    };
+    if b[1] != b' ' || b[2] != b'[' || b[4] != b']' {
+        return None;
+    }
+    let done = match b[3] {
+        b' ' => false,
+        b'x' | b'X' => true,
+        _ => return None,
+    };
+    // A checkbox with no trailing space is still a checkbox: "- [ ]" alone.
+    let body = match trimmed.get(5..) {
+        Some("") => "",
+        Some(rest) if rest.starts_with([' ', '\t']) => rest.trim_start(),
+        Some(_) => return None,
+        None => "",
+    };
+    Some((indent, bullet, done, body))
+}
+
+/// True if this line opens or closes a fenced code block.
+fn is_fence(line: &str) -> bool {
+    let t = line.trim_start();
+    t.starts_with("```") || t.starts_with("~~~")
+}
+
+/// Parse one markdown line into a task, or `None` if it isn't one.
+pub fn parse_md_line(line: &str) -> Option<Task> {
+    let (indent, bullet, done, body) = split_checkbox(line)?;
+    if body.trim().is_empty() {
+        return None;
+    }
+    // Re-canonicalize to todo.txt: the checkbox is the source of truth for
+    // completion, so a checked line gets the `x ` prefix back before the
+    // inherited parser sees it.
+    let canonical = match (done, strip_prefix_x(body)) {
+        (true, None) => format!("x {body}"),
+        _ => body.to_string(),
+    };
+    let mut task = parse_line(&canonical).ok()?;
+    task.indent = indent.to_string();
+    task.bullet = bullet;
+    Some(task)
+}
+
+/// Parse a whole markdown file. Nothing is ever dropped: every line lands in
+/// either `tasks` or `text`.
+pub fn parse_doc(s: &str) -> Doc {
+    let mut doc = Doc::default();
+    let mut in_fence = false;
+    for (idx, line) in s.lines().enumerate() {
+        if is_fence(line) {
+            in_fence = !in_fence;
+            doc.text.push((idx, line.to_string()));
+            continue;
+        }
+        // `- [ ] not a task` inside a code fence stays text.
+        match if in_fence { None } else { parse_md_line(line) } {
+            Some(task) => doc.tasks.push(task),
+            None => doc.text.push((idx, line.to_string())),
+        }
+    }
+    doc
+}
+
+/// Tasks only. Kept for the call sites that genuinely don't care about the
+/// surrounding document (the archive file, filters, tests).
+pub fn parse_file(s: &str) -> Vec<Task> {
+    parse_doc(s).tasks
+}
+
+/// Serialize tasks with no surrounding document — used for the archive file.
 pub fn serialize(tasks: &[Task]) -> String {
+    serialize_doc(tasks, &[])
+}
+
+/// Serialize tasks back into their document, re-inserting pinned text at the
+/// absolute positions it was parsed from. Untouched lines come out
+/// byte-identical.
+pub fn serialize_doc(tasks: &[Task], text: &[(usize, String)]) -> String {
     let mut out = String::new();
-    for t in tasks {
-        out.push_str(&t.raw);
+    let mut tasks = tasks.iter();
+    let mut text = text.iter().peekable();
+    let total = tasks.len() + text.len();
+    for idx in 0..total {
+        match text.peek() {
+            Some((at, line)) if *at == idx => {
+                out.push_str(line);
+                text.next();
+            }
+            // ponytail: text past the end of the document (possible after
+            // deleting tasks) is flushed in order once the tasks run out.
+            _ => match tasks.next() {
+                Some(t) => out.push_str(&t.to_line()),
+                None => match text.next() {
+                    Some((_, line)) => out.push_str(line),
+                    None => break,
+                },
+            },
+        }
         out.push('\n');
     }
     out
+}
+
+/// Convert a todo.txt file body into chiba's markdown form: every non-empty
+/// line becomes a checkbox, `x ` completion prefixes move into the box. Lines
+/// that already carry a checkbox pass through, so this is idempotent.
+///
+/// This is `chiba import`.
+pub fn from_todotxt(raw: &str) -> String {
+    let mut out = String::new();
+    for line in raw.lines() {
+        if line.trim().is_empty() || parse_md_line(line).is_some() {
+            out.push_str(line);
+        } else if let Some(rest) = line.strip_prefix("x ") {
+            out.push_str(&format!("{DEFAULT_BULLET} [x] {rest}"));
+        } else {
+            out.push_str(&format!("{DEFAULT_BULLET} [ ] {line}"));
+        }
+        out.push('\n');
+    }
+    out
+}
+
+/// Convert a chiba markdown file back to todo.txt. Returns the body and the
+/// number of non-task lines dropped — headings and prose have no todo.txt
+/// equivalent, and the caller is expected to say so out loud.
+///
+/// This is `chiba export`.
+pub fn to_todotxt(raw: &str) -> (String, usize) {
+    let doc = parse_doc(raw);
+    let dropped = doc
+        .text
+        .iter()
+        .filter(|(_, l)| !l.trim().is_empty())
+        .count();
+    let mut out = String::new();
+    for t in &doc.tasks {
+        out.push_str(&t.raw);
+        out.push('\n');
+    }
+    (out, dropped)
 }
 
 /// Atomically write `body` to `path` (write to .tmp sibling, rename).
@@ -240,6 +418,17 @@ pub fn write_atomic(path: &Path, body: &str) -> std::io::Result<()> {
 }
 
 impl Task {
+    /// Render this task as a markdown line: `<indent><bullet> [ ] <body>`.
+    /// The `x ` completion prefix lives in the checkbox, not the body, so it's
+    /// stripped on the way out and re-added on the way in.
+    pub fn to_line(&self) -> String {
+        let (mark, body) = match self.done {
+            true => ('x', strip_prefix_x(&self.raw).unwrap_or(&self.raw)),
+            false => (' ', self.raw.as_str()),
+        };
+        format!("{}{} [{}] {}", self.indent, self.bullet, mark, body)
+    }
+
     /// Mark this task complete as of `today`. No-op if already done.
     /// The serialized line follows todo.txt convention: `x DONE CREATED BODY`,
     /// where `BODY` has had any leading priority/created-date stripped. If the
@@ -326,11 +515,11 @@ impl Task {
         if !self.contexts.iter().any(|c| c == name) {
             return Ok(false);
         }
-        let needle = format!("@{name}");
+        let (at, hash) = (format!("@{name}"), format!("#{name}"));
         let new_raw = self
             .raw
             .split_whitespace()
-            .filter(|tok| *tok != needle)
+            .filter(|tok| *tok != at && *tok != hash)
             .collect::<Vec<_>>()
             .join(" ");
         self.replace_from_raw(&new_raw).map_err(TagError::Parse)?;
@@ -355,9 +544,13 @@ impl Task {
     }
 
     /// Re-parse `raw` and overwrite self. Only mutates on success, so a
-    /// failed parse leaves the task untouched.
+    /// failed parse leaves the task untouched. The markdown wrapper is carried
+    /// across — `parse_line` only knows about the todo.txt body.
     fn replace_from_raw(&mut self, raw: &str) -> Result<(), ParseError> {
-        *self = parse_line(raw)?;
+        let mut next = parse_line(raw)?;
+        next.indent = std::mem::take(&mut self.indent);
+        next.bullet = self.bullet;
+        *self = next;
         Ok(())
     }
 }
@@ -462,6 +655,11 @@ fn is_meta_token(tok: &str) -> bool {
         return true;
     }
     if let Some(rest) = tok.strip_prefix('@')
+        && !rest.is_empty()
+    {
+        return true;
+    }
+    if let Some(rest) = tok.strip_prefix('#')
         && !rest.is_empty()
     {
         return true;
@@ -632,5 +830,114 @@ mod tests {
         for (a, b) in parsed.iter().zip(reparsed.iter()) {
             assert_eq!(a.raw, b.raw);
         }
+    }
+
+    // ----- markdown layer -------------------------------------------------
+    //
+    // These five are the fork's reason to exist: tuxedo's parse_file dropped
+    // every non-task line on the floor, so writing the file back destroyed a
+    // real markdown document. If any of these break, chiba eats user data.
+
+    const MESSY: &str = "\
+---
+title: tasks
+---
+
+# Work
+
+Some prose with a - [ ] that isn't at the start of a line.
+
+- [ ] (A) 2026-05-01 real task +work due:2026-05-08
+* [x] 2026-05-05 2026-05-01 done with a star bullet
+  - [ ] indented task #home
+
+```sh
+- [ ] not a task, this is inside a fence
+```
+
+> a blockquote
+1. an ordered list item
+
+- [ ]
+- [ ] last +work
+";
+
+    #[test]
+    fn round_trip_preserves_every_non_task_line() {
+        let doc = parse_doc(MESSY);
+        let out = serialize_doc(&doc.tasks, &doc.text);
+        assert_eq!(out, MESSY, "round-trip must be byte-identical");
+    }
+
+    #[test]
+    fn fenced_checkbox_is_not_a_task() {
+        let doc = parse_doc(MESSY);
+        assert!(
+            !doc.tasks.iter().any(|t| t.raw.contains("inside a fence")),
+            "a checkbox inside a code fence must stay text",
+        );
+        // 4 real tasks: the (A) one, the starred done one, the indented one,
+        // and "last". The bare "- [ ]" has no body and stays text.
+        assert_eq!(doc.tasks.len(), 4);
+    }
+
+    #[test]
+    fn mutation_touches_only_its_own_line() {
+        let mut doc = parse_doc(MESSY);
+        doc.tasks[0].mark_done("2026-05-09").expect("mark done");
+        let out = serialize_doc(&doc.tasks, &doc.text);
+        let (before, after): (Vec<_>, Vec<_>) = (MESSY.lines().collect(), out.lines().collect());
+        let differing: Vec<_> = before
+            .iter()
+            .zip(after.iter())
+            .filter(|(a, b)| a != b)
+            .collect();
+        assert_eq!(
+            differing.len(),
+            1,
+            "exactly one line may change: {differing:?}"
+        );
+        assert!(
+            after
+                .iter()
+                .any(|l| l.starts_with("- [x] 2026-05-09 2026-05-01 real task"))
+        );
+    }
+
+    #[test]
+    fn wrapper_survives_mutation() {
+        // Bullet and indent are re-emitted from the Task, not from `raw` —
+        // a priority change must not turn "  - " into "- " or "* " into "- ".
+        let mut doc = parse_doc("  * [ ] indented star task\n");
+        doc.tasks[0].set_priority(Some('B')).expect("set priority");
+        assert_eq!(
+            serialize_doc(&doc.tasks, &doc.text),
+            "  * [ ] (B) indented star task\n"
+        );
+    }
+
+    #[test]
+    fn import_export_is_identity_for_task_only_files() {
+        let txt = "(A) 2026-05-01 a +work\nx 2026-05-05 2026-05-01 b\n2026-05-02 c @home\n";
+        let md = from_todotxt(txt);
+        assert!(md.starts_with("- [ ] (A)"));
+        let (back, dropped) = to_todotxt(&md);
+        assert_eq!(back, txt);
+        assert_eq!(dropped, 0);
+    }
+
+    #[test]
+    fn export_reports_dropped_prose() {
+        let (_, dropped) = to_todotxt("# Heading\n\n- [ ] a task\nsome prose\n");
+        assert_eq!(dropped, 2, "heading + prose counted, blank line not");
+    }
+
+    #[test]
+    fn hash_tag_is_a_context() {
+        let t = parse_md_line("- [ ] water plants #home @errands").expect("task");
+        // `@` tokens first, then `#` — both land in contexts.
+        assert_eq!(t.contexts, ["errands", "home"]);
+        // ...and neither leaks into the description text.
+        assert_eq!(body_only(&t.raw), "water plants");
     }
 }

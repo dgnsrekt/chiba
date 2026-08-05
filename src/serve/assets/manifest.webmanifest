@@ -1,6 +1,6 @@
 {
-  "name": "tuxedo capture",
-  "short_name": "tuxedo",
+  "name": "chiba capture",
+  "short_name": "chiba",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

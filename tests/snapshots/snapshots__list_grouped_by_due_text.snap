@@ -2,7 +2,7 @@
 source: tests/snapshots.rs
 expression: buffer_to_text(&buf)
 ---
- FILTERS                   ▶▮◀ /tmp/tuxedo-snapshot.txt  •  15 tas DETAIL                           
+ FILTERS                   ▶▮◀ /tmp/chiba-snapshot.md  •  15 tasks DETAIL                           
                                                                                                     
  PROJECTS                  (1)  TODAY  ─────────────────────────── priority  (A)                    
    +work             4      1 ▸ (A) Finish Q2 board deck +work @la created   2026-05-01             
@@ -18,12 +18,12 @@ expression: buffer_to_text(&buf)
    @home             4     (8)  NO DUE DATE  ─────────────────────                                  
    @laptop           4      8   (B) Draft hiring rubric for senior                                  
    @phone            3      9   (C) Order new running shoes +healt                                  
-                           10       Pick up dry cleaning @errands                                   
-                           11       Schedule annual physical @phon                                  
-                           12       Read "Designing Data-Intensive                                  
+                           10       Schedule annual physical @phon                                  
+                           11       Pick up dry cleaning @errands                                   
+                           12       Replace bathroom faucet washer                                  
                            13       Send thank-you note to mentor                                   
-                           14       Plan Saturday hike with K. @ph                                  
-                           15       Replace bathroom faucet washer                                  
+                           14       Read "Designing Data-Intensive                                  
+                           15       Plan Saturday hike with K. @ph                                  
                                                                                                     
                                                                                                     
                                                                                                     
@@ -33,4 +33,4 @@ expression: buffer_to_text(&buf)
                                                                                                     
                                                                                                     
                                                                                                     
- NORMAL · sort: due   j/k · n new · r reschedule · x done · /15 open · 2026-05-06 · tuxedo 2026.7.1
+ NORMAL · sort: due   j/k · n new · r reschedule · x done · / 15 open · 2026-05-06 · chiba 2026.7.1

@@ -28,7 +28,9 @@ impl Store {
         if on_disk == self.last_disk {
             return Reconcile::Unchanged;
         }
-        self.tasks = todo::parse_file(&on_disk);
+        let doc = todo::parse_doc(&on_disk);
+        self.tasks = doc.tasks;
+        self.text = doc.text;
         self.last_disk = on_disk;
         self.history.clear();
         Reconcile::Reloaded
@@ -57,7 +59,7 @@ impl Store {
             return DrainReport::default();
         }
 
-        // Coordinate with `tuxedo serve`'s POST handler (and other tuxedo
+        // Coordinate with `chiba serve`'s POST handler (and other chiba
         // instances). The lock spans the rename + read + cleanup.
         let _lock = match inbox::acquire_lock(&self.file_path) {
             Ok(l) => l,
@@ -120,7 +122,7 @@ impl Store {
         self.push_history();
         let merged = new_tasks.len();
         self.tasks.extend(new_tasks);
-        let body = todo::serialize(&self.tasks);
+        let body = todo::serialize_doc(&self.tasks, &self.text);
         match todo::write_atomic(&self.file_path, &body) {
             Ok(()) => {
                 self.last_disk = body;
@@ -154,18 +156,15 @@ impl Store {
 mod tests {
     use super::*;
     use crate::core::Store;
-    use crate::core::test_support::{build_store, test_path};
+    use crate::core::test_support::{build_store, md, test_path, write_md};
 
     #[test]
     fn external_edit_reloads_and_aborts_mutation() {
         let path = test_path();
-        std::fs::write(&path, "(A) 2026-05-01 a\n").unwrap();
-        let mut store = Store::open_sync(
-            path.clone(),
-            "(A) 2026-05-01 a\n".to_string(),
-            "2026-05-06".into(),
-        );
-        std::fs::write(&path, "(B) 2026-05-02 b\n(B) 2026-05-02 c\n").unwrap();
+        write_md(&path, "(A) 2026-05-01 a\n").unwrap();
+        let mut store =
+            Store::open_sync(path.clone(), md("(A) 2026-05-01 a\n"), "2026-05-06".into());
+        write_md(&path, "(B) 2026-05-02 b\n(B) 2026-05-02 c\n").unwrap();
         // A delete that would otherwise remove the only task is aborted.
         assert!(matches!(
             store.delete(0),
@@ -181,9 +180,9 @@ mod tests {
     #[test]
     fn reconcile_reports_reloaded_then_unchanged() {
         let path = test_path();
-        std::fs::write(&path, "a\nb\n").unwrap();
-        let mut store = Store::open_sync(path.clone(), "a\nb\n".to_string(), "2026-05-06".into());
-        std::fs::write(&path, "x\ny\nz\n").unwrap();
+        write_md(&path, "a\nb\n").unwrap();
+        let mut store = Store::open_sync(path.clone(), md("a\nb\n"), "2026-05-06".into());
+        write_md(&path, "x\ny\nz\n").unwrap();
         assert_eq!(store.reconcile(), Reconcile::Reloaded);
         assert_eq!(store.tasks().len(), 3);
         assert_eq!(store.tasks()[0].raw, "x");
@@ -193,11 +192,11 @@ mod tests {
     #[test]
     fn external_edit_clears_undo_history() {
         let path = test_path();
-        std::fs::write(&path, "a\nb\n").unwrap();
-        let mut store = Store::open_sync(path.clone(), "a\nb\n".to_string(), "2026-05-06".into());
+        write_md(&path, "a\nb\n").unwrap();
+        let mut store = Store::open_sync(path.clone(), md("a\nb\n"), "2026-05-06".into());
         store.delete(0);
         assert!(!store.history.is_empty());
-        std::fs::write(&path, "x\ny\nz\n").unwrap();
+        write_md(&path, "x\ny\nz\n").unwrap();
         store.delete(0);
         assert!(store.history.is_empty());
     }
@@ -225,12 +224,12 @@ mod tests {
         use std::sync::atomic::{AtomicUsize, Ordering};
         static N: AtomicUsize = AtomicUsize::new(0);
         let n = N.fetch_add(1, Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!("tuxedo-inbox-{}-{}", std::process::id(), n));
+        let dir = std::env::temp_dir().join(format!("chiba-inbox-{}-{}", std::process::id(), n));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let todo_path = dir.join("todo.txt");
-        std::fs::write(&todo_path, todo_raw).unwrap();
-        let store = Store::open_sync(todo_path.clone(), todo_raw.to_string(), "2026-05-13".into());
+        let todo_path = dir.join("todo.md");
+        write_md(&todo_path, todo_raw).unwrap();
+        let store = Store::open_sync(todo_path.clone(), md(todo_raw), "2026-05-13".into());
         (store, dir, todo_path)
     }
 
@@ -238,7 +237,7 @@ mod tests {
     fn drain_merges_natural_language_lines() {
         let (mut store, dir, todo_path) = build_store_with_dir("(A) 2026-05-01 existing\n");
         std::fs::write(
-            dir.join("inbox.txt"),
+            dir.join("inbox.md"),
             "Buy milk tomorrow\nCall mom every friday\n",
         )
         .unwrap();
@@ -253,8 +252,8 @@ mod tests {
         let on_disk = std::fs::read_to_string(&todo_path).unwrap();
         assert!(on_disk.contains("Buy milk"));
         assert!(on_disk.contains("Call mom"));
-        assert!(!dir.join("inbox.txt").exists());
-        assert!(!dir.join("inbox.txt.tuxedo-staging").exists());
+        assert!(!dir.join("inbox.md").exists());
+        assert!(!dir.join("inbox.md.chiba-staging").exists());
     }
 
     #[test]
@@ -279,7 +278,7 @@ mod tests {
     #[test]
     fn drain_skips_invalid_and_reports_count() {
         let (mut store, dir, _) = build_store_with_dir("a\n");
-        std::fs::write(dir.join("inbox.txt"), "good line\n\n# this is a comment\n").unwrap();
+        std::fs::write(dir.join("inbox.md"), "good line\n\n# this is a comment\n").unwrap();
         let report = store.drain_inbox();
         assert_eq!(report.merged, 1);
         assert_eq!(report.skipped, 0);
@@ -290,17 +289,17 @@ mod tests {
     #[test]
     fn drain_recovers_existing_staging_file() {
         let (mut store, dir, _) = build_store_with_dir("a\n");
-        std::fs::write(dir.join("inbox.txt.tuxedo-staging"), "recovered task\n").unwrap();
+        std::fs::write(dir.join("inbox.md.chiba-staging"), "recovered task\n").unwrap();
         assert_eq!(store.drain_inbox().merged, 1);
         assert_eq!(store.tasks().len(), 2);
         assert!(store.tasks()[1].raw.contains("recovered task"));
-        assert!(!dir.join("inbox.txt.tuxedo-staging").exists());
+        assert!(!dir.join("inbox.md.chiba-staging").exists());
     }
 
     #[test]
     fn drain_is_undoable_as_single_batch() {
         let (mut store, dir, _) = build_store_with_dir("a\n");
-        std::fs::write(dir.join("inbox.txt"), "one\ntwo\nthree\n").unwrap();
+        std::fs::write(dir.join("inbox.md"), "one\ntwo\nthree\n").unwrap();
         assert_eq!(store.drain_inbox().merged, 3);
         assert_eq!(store.tasks().len(), 4);
         store.undo();
@@ -314,14 +313,14 @@ mod tests {
         store.toggle_complete(0);
         let toggled = store.tasks()[0].done;
         let after_toggle_disk = std::fs::read_to_string(&todo_path).unwrap();
-        std::fs::write(dir.join("inbox.txt"), "\n  \n# just a comment\n\n").unwrap();
+        std::fs::write(dir.join("inbox.md"), "\n  \n# just a comment\n\n").unwrap();
         let report = store.drain_inbox();
         assert_eq!(report.merged, 0);
         assert_eq!(
             std::fs::read_to_string(&todo_path).unwrap(),
             after_toggle_disk,
         );
-        assert!(!dir.join("inbox.txt.tuxedo-staging").exists());
+        assert!(!dir.join("inbox.md.chiba-staging").exists());
         store.undo();
         assert_ne!(store.tasks()[0].done, toggled);
     }

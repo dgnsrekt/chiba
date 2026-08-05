@@ -10,15 +10,15 @@ use ratatui::crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, Ke
 
 use std::io::Write;
 
-use tuxedo::action::Action;
-use tuxedo::app::{AddOutcome, App, CalendarTarget, DialogInputMode, Mode, OverlayKind, View};
-use tuxedo::cli;
-use tuxedo::config::Config;
-use tuxedo::config_watcher;
-use tuxedo::keybinds::{KeyBindings, ResolvedKey};
-use tuxedo::theme;
-use tuxedo::ui::hyperlinks;
-use tuxedo::{clipboard, todo, ui, update};
+use chiba::action::Action;
+use chiba::app::{AddOutcome, App, CalendarTarget, DialogInputMode, Mode, OverlayKind, View};
+use chiba::cli;
+use chiba::config::Config;
+use chiba::config_watcher;
+use chiba::keybinds::{KeyBindings, ResolvedKey};
+use chiba::theme;
+use chiba::ui::hyperlinks;
+use chiba::{clipboard, todo, ui, update};
 
 const EVENT_POLL: Duration = Duration::from_millis(250);
 
@@ -26,7 +26,7 @@ fn main() -> Result<()> {
     let argv: Vec<String> = std::env::args().skip(1).collect();
     // A recognized subcommand (possibly preceded by `-f`/`--json`) runs the
     // one-shot CLI and exits; otherwise we fall through to the TUI.
-    if let Some(code) = tuxedo::cmd::run(&argv)? {
+    if let Some(code) = chiba::cmd::run(&argv)? {
         std::process::exit(code);
     }
     let arg = argv.first().cloned();
@@ -38,7 +38,7 @@ fn main() -> Result<()> {
             return Ok(());
         }
         Some("--version") | Some("-V") => {
-            println!("tuxedo {}", env!("CARGO_PKG_VERSION"));
+            println!("chiba {}", env!("CARGO_PKG_VERSION"));
             return Ok(());
         }
         Some("update") => {
@@ -47,15 +47,15 @@ fn main() -> Result<()> {
         }
         Some("--sample") => (cli::sample_path()?, Mode::Normal),
         Some(s) if s.starts_with('-') => {
-            eprintln!("tuxedo: unknown option: {s}");
-            eprintln!("try `tuxedo --help`");
+            eprintln!("chiba: unknown option: {s}");
+            eprintln!("try `chiba --help`");
             std::process::exit(2);
         }
         _ => match cli::resolve_target(arg)? {
             cli::Target::File(p) => (p, Mode::Normal),
             // Open into the welcome prompt backed by an as-yet-uncreated
             // ./todo.txt; `handle_welcome` materializes the file the user picks.
-            cli::Target::FirstRun => (std::path::PathBuf::from("todo.txt"), Mode::Welcome),
+            cli::Target::FirstRun => (std::path::PathBuf::from("todo.md"), Mode::Welcome),
         },
     };
     // A freshly-created file is empty; otherwise read it. We accept NotFound
@@ -102,15 +102,15 @@ fn main() -> Result<()> {
         0 => {}
         1 => app_state.flash(theme_warnings.into_iter().next().expect("len==1")),
         n => app_state.flash(format!(
-            "{n} theme(s) skipped — check ~/.config/tuxedo/themes/"
+            "{n} theme(s) skipped — check ~/.config/chiba/themes/"
         )),
     }
-    if std::env::var_os("TUXEDO_NO_UPDATE_CHECK").is_none() {
+    if std::env::var_os("CHIBA_NO_UPDATE_CHECK").is_none() {
         app_state.set_update_check(update::spawn_check());
     }
 
     let terminal = ratatui::init();
-    // Give the window/tab a consistent `tuxedo <path>` title across terminals
+    // Give the window/tab a consistent `chiba <path>` title across terminals
     // and operating systems, shortening long paths to fit a fixed budget.
     let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
     let title = ui::title::terminal_title(&path, home.as_deref(), ui::title::DEFAULT_BUDGET);
@@ -118,7 +118,7 @@ fn main() -> Result<()> {
     let result = run(terminal, &mut app_state, &keybinds, config_rx);
     ratatui::restore();
     // Clear the title on exit so the shell retitles on its next prompt rather
-    // than leaving `tuxedo …` behind.
+    // than leaving `chiba …` behind.
     let _ = crossterm::execute!(io::stdout(), crossterm::terminal::SetTitle(""));
     // Print the file path *after* restoring the terminal so the message
     // survives in the user's scrollback rather than being eaten by the
@@ -126,15 +126,15 @@ fn main() -> Result<()> {
     // rebound to the sample. Skip the line if the user quit the welcome
     // prompt without choosing — no file was opened.
     if app_state.mode != Mode::Welcome {
-        eprintln!("tuxedo: {}", app_state.file_path.display());
+        eprintln!("chiba: {}", app_state.file_path.display());
     }
     result
 }
 
 fn print_usage() {
-    println!("usage: tuxedo [FILE]                 launch the TUI");
-    println!("       tuxedo <command> [args]       run a one-shot command");
-    println!("       tuxedo update");
+    println!("usage: chiba [FILE]                 launch the TUI");
+    println!("       chiba <command> [args]       run a one-shot command");
+    println!("       chiba update");
     println!();
     println!("Without FILE or a command, opens ./todo.txt if present; otherwise");
     println!("prompts to create ./todo.txt here or open a sample todo.txt, in");
@@ -159,7 +159,7 @@ fn print_usage() {
     println!("  listpri, lsp [PRIORITY]   list prioritized tasks");
     println!("  listproj, lsprj           list +projects");
     println!("  listcon, lsc              list @contexts");
-    println!("  update                    print instructions for upgrading tuxedo");
+    println!("  update                    print instructions for upgrading chiba");
     println!();
     println!("Options:");
     println!("  -f, --force      skip confirmation prompts (e.g. for del)");
@@ -169,9 +169,10 @@ fn print_usage() {
     println!("      --sample     open the sample todo.txt in the TUI");
     println!();
     println!("Environment:");
-    println!("  TODO_DIR     directory holding todo.txt / done.txt");
-    println!("  TODO_FILE    path to the todo file (default $TODO_DIR/todo.txt)");
-    println!("  DONE_FILE    path to the archive file (default sibling done.txt)");
+    println!("  CHIBA_DIR    directory holding todo.md / done.md");
+    println!("  CHIBA_FILE   path to the todo file (default $CHIBA_DIR/todo.md)");
+    println!("  DONE_FILE    path to the archive file (default sibling done.md)");
+    println!("  TODO_DIR, TODO_FILE   todo.txt-cli fallbacks, used if the above are unset");
 }
 
 fn run(
@@ -931,7 +932,7 @@ fn handle_prompt(app: &mut App, key: KeyEvent) {
     }
 }
 
-// `Action` lives in `tuxedo::action` (see `src/action.rs`). Keeping it in the
+// `Action` lives in `chiba::action` (see `src/action.rs`). Keeping it in the
 // library lets the command palette enumerate every variant without pulling
 // main.rs into the dependency graph.
 
@@ -1315,9 +1316,9 @@ fn copy_current_task(app: &mut App, body_only: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chiba::config::Config;
     use chrono::NaiveDate;
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-    use tuxedo::config::Config;
 
     fn key(c: char) -> KeyEvent {
         KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)
@@ -1337,7 +1338,7 @@ mod tests {
 
     fn welcome_app(name: &str) -> (App, std::path::PathBuf) {
         let path = std::env::temp_dir().join(format!(
-            "tuxedo-welcome-{name}-{}-{:?}.txt",
+            "chiba-welcome-{name}-{}-{:?}.txt",
             std::process::id(),
             std::thread::current().id()
         ));
@@ -1371,7 +1372,7 @@ mod tests {
         assert_eq!(app.mode, Mode::Normal);
         assert_ne!(app.file_path, path, "`s` rebinds away from the cwd target");
         assert!(
-            app.file_path.ends_with("tuxedo-sample.txt"),
+            app.file_path.ends_with("chiba-sample.md"),
             "`s` opens the bundled sample, got {:?}",
             app.file_path
         );
@@ -1394,14 +1395,14 @@ mod tests {
 
     fn build_app() -> App {
         let path = std::env::temp_dir().join(format!(
-            "tuxedo-bindings-{}-{:?}.txt",
+            "chiba-bindings-{}-{:?}.txt",
             std::process::id(),
             std::thread::current().id()
         ));
-        let _ = std::fs::write(&path, "a\nb\nc\n");
+        let _ = std::fs::write(&path, chiba::todo::from_todotxt("a\nb\nc\n"));
         App::new(
             path,
-            "a\nb\nc\n".into(),
+            chiba::todo::from_todotxt("a\nb\nc\n"),
             "2026-05-07".into(),
             Config::default(),
         )
@@ -1409,14 +1410,17 @@ mod tests {
 
     fn build_app_with_due() -> App {
         let path = std::env::temp_dir().join(format!(
-            "tuxedo-bindings-{}-{:?}.txt",
+            "chiba-bindings-{}-{:?}.txt",
             std::process::id(),
             std::thread::current().id()
         ));
-        let _ = std::fs::write(&path, "Buy milk due:2026-06-30\n");
+        let _ = std::fs::write(
+            &path,
+            chiba::todo::from_todotxt("Buy milk due:2026-06-30\n"),
+        );
         App::new(
             path,
-            "Buy milk due:2026-06-30\n".into(),
+            chiba::todo::from_todotxt("Buy milk due:2026-06-30\n"),
             "2026-05-07".into(),
             Config::default(),
         )
@@ -1578,18 +1582,18 @@ mod tests {
         use std::time::{Duration, Instant};
         static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let dir =
-            std::env::temp_dir().join(format!("tuxedo-bindings-{}-{}", std::process::id(), n));
+        let dir = std::env::temp_dir().join(format!("chiba-bindings-{}-{}", std::process::id(), n));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("create test dir");
-        let todo_path = dir.join("todo.txt");
-        std::fs::write(&todo_path, todo_raw).expect("write todo.txt");
+        let todo_path = dir.join("todo.md");
+        std::fs::write(&todo_path, chiba::todo::from_todotxt(todo_raw)).expect("write todo.txt");
         if let Some(body) = done_raw {
-            std::fs::write(dir.join("done.txt"), body).expect("write done.txt");
+            std::fs::write(dir.join("done.md"), chiba::todo::from_todotxt(body))
+                .expect("write done.txt");
         }
         let mut app = App::new(
             todo_path,
-            todo_raw.into(),
+            chiba::todo::from_todotxt(todo_raw),
             "2026-05-06".into(),
             Config::default(),
         );

@@ -1,4 +1,4 @@
-//! Network helpers for `tuxedo serve`: LAN-IP discovery, token
+//! Network helpers for `chiba serve`: LAN-IP discovery, token
 //! generation, form-encoded body decoding, and the atomic append to
 //! `inbox.txt` that the POST handler uses.
 
@@ -221,29 +221,29 @@ mod tests {
     #[test]
     fn append_creates_inbox_when_missing() {
         let dir = std::env::temp_dir().join(format!(
-            "tuxedo-serve-append-{}-{}",
+            "chiba-serve-append-{}-{}",
             std::process::id(),
             line!()
         ));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let todo_path = dir.join("todo.txt");
+        let todo_path = dir.join("todo.md");
         std::fs::write(&todo_path, "").unwrap();
         append_to_inbox(&todo_path, "  buy milk  ").unwrap();
-        let body = std::fs::read_to_string(dir.join("inbox.txt")).unwrap();
+        let body = std::fs::read_to_string(dir.join("inbox.md")).unwrap();
         assert_eq!(body, "buy milk\n");
         append_to_inbox(&todo_path, "call mom").unwrap();
-        let body = std::fs::read_to_string(dir.join("inbox.txt")).unwrap();
+        let body = std::fs::read_to_string(dir.join("inbox.md")).unwrap();
         assert_eq!(body, "buy milk\ncall mom\n");
     }
 
     #[test]
     fn append_rejects_empty_line() {
         let dir =
-            std::env::temp_dir().join(format!("tuxedo-serve-append-empty-{}", std::process::id()));
+            std::env::temp_dir().join(format!("chiba-serve-append-empty-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let todo_path = dir.join("todo.txt");
+        let todo_path = dir.join("todo.md");
         std::fs::write(&todo_path, "").unwrap();
         assert!(append_to_inbox(&todo_path, "   ").is_err());
     }
@@ -255,12 +255,12 @@ mod tests {
         // dangling line — both lines have to land separately so the
         // drain parses them as distinct tasks.
         let dir =
-            std::env::temp_dir().join(format!("tuxedo-serve-append-noeol-{}", std::process::id()));
+            std::env::temp_dir().join(format!("chiba-serve-append-noeol-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let todo_path = dir.join("todo.txt");
+        let todo_path = dir.join("todo.md");
         std::fs::write(&todo_path, "").unwrap();
-        let inbox = dir.join("inbox.txt");
+        let inbox = dir.join("inbox.md");
         std::fs::write(&inbox, "dangling").unwrap();
         append_to_inbox(&todo_path, "next").unwrap();
         assert_eq!(std::fs::read_to_string(&inbox).unwrap(), "dangling\nnext\n");

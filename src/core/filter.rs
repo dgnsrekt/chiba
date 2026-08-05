@@ -204,7 +204,7 @@ mod tests {
     #[test]
     fn unique_values_dedups_and_sorts() {
         let raw = "(A) 2026-05-01 a +work +health\n2026-05-01 b +work\n2026-05-01 c +health\n";
-        let tasks = crate::todo::parse_file(raw);
+        let tasks = crate::todo::parse_file(&crate::core::test_support::md(raw));
         let projects = unique_values(&tasks, |t| &t.projects);
         assert_eq!(projects, vec!["health".to_string(), "work".to_string()]);
     }

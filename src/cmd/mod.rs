@@ -42,7 +42,7 @@ fn parse_args(rest: &[String]) -> Result<Args, String> {
 const SUBCOMMANDS: &[&str] = &[
     "add", "a", "append", "app", "prepend", "prep", "replace", "pri", "p", "depri", "dp", "done",
     "do", "complete", "del", "rm", "archive", "list", "ls", "listall", "lsa", "listpri", "lsp",
-    "listproj", "lsprj", "listcon", "lsc",
+    "listproj", "lsprj", "listcon", "lsc", "import", "export",
 ];
 
 /// Locate the subcommand: the first non-global token, if it is a known
@@ -78,12 +78,18 @@ pub fn run(argv: &[String]) -> Result<Option<i32>> {
     let args = match parse_args(&rest) {
         Ok(a) => a,
         Err(e) => {
-            eprintln!("tuxedo: {e}");
+            eprintln!("chiba: {e}");
             return Ok(Some(2));
         }
     };
 
-    // todo.sh-style path resolution via $TODO_FILE / $TODO_DIR / $DONE_FILE.
+    // Format conversion runs on files directly — no store, no path resolution.
+    if cmd == "import" || cmd == "export" {
+        return Ok(Some(cmd_convert(&cmd, &args.free, args.force)));
+    }
+
+    // Path resolution via $CHIBA_FILE / $CHIBA_DIR (todo.txt-cli vars as
+    // fallback) / $DONE_FILE.
     let path = crate::cli::resolve_path(None).context("resolving todo file")?;
     let done = crate::cli::done_path(&path);
     let body = match std::fs::read_to_string(&path) {
@@ -113,7 +119,7 @@ pub fn run(argv: &[String]) -> Result<Option<i32>> {
         "listproj" | "lsprj" => cmd_listtags(&store, json, TagKind::Project),
         "listcon" | "lsc" => cmd_listtags(&store, json, TagKind::Context),
         other => {
-            eprintln!("tuxedo: unknown command: {other}");
+            eprintln!("chiba: unknown command: {other}");
             2
         }
     };
@@ -123,12 +129,12 @@ pub fn run(argv: &[String]) -> Result<Option<i32>> {
 // ----- helpers -----------------------------------------------------------
 
 fn err(msg: impl std::fmt::Display) -> i32 {
-    eprintln!("tuxedo: {msg}");
+    eprintln!("chiba: {msg}");
     1
 }
 
 fn usage(msg: impl std::fmt::Display) -> i32 {
-    eprintln!("usage: tuxedo {msg}");
+    eprintln!("usage: chiba {msg}");
     2
 }
 
@@ -172,7 +178,7 @@ fn store_error(json: bool, action: &str, e: impl std::fmt::Display) -> i32 {
         s.push('}');
         eprintln!("{s}");
     } else {
-        eprintln!("tuxedo: {e}");
+        eprintln!("chiba: {e}");
     }
     1
 }
@@ -387,7 +393,7 @@ fn cmd_done(store: &mut Store, pos: &[String], json: bool) -> i32 {
             // todo.sh format for the completion itself.
             println!("{n} {}", t.raw);
             println!("{prefix}: {n} marked as done.");
-            // Recurrence is a tuxedo feature todo.sh lacks; surface the spawned
+            // Recurrence is a chiba feature todo.sh lacks; surface the spawned
             // next instance as a freshly-added task in the same idiom.
             if let Some((nn, nt)) = next {
                 println!("{nn} {}", nt.raw);
@@ -492,6 +498,63 @@ fn cmd_del(store: &mut Store, pos: &[String], json: bool, force: bool) -> i32 {
         }
     }
     code
+}
+
+/// `chiba import <file.txt> [out.md]` / `chiba export <file.md> [out.txt]`.
+///
+/// Conversion only — neither command touches the resolved todo file, so
+/// pointing them at anything is safe. The destination defaults to the source
+/// with its extension swapped, and is never overwritten without `--force`.
+fn cmd_convert(cmd: &str, pos: &[String], force: bool) -> i32 {
+    let importing = cmd == "import";
+    let (from_ext, to_ext) = match importing {
+        true => ("txt", "md"),
+        false => ("md", "txt"),
+    };
+    let Some(src) = pos.first() else {
+        eprintln!("chiba: usage: chiba {cmd} <file.{from_ext}> [out.{to_ext}]");
+        return 2;
+    };
+    let src = std::path::PathBuf::from(src);
+    let dst = match pos.get(1) {
+        Some(p) => std::path::PathBuf::from(p),
+        None => src.with_extension(to_ext),
+    };
+    if src == dst {
+        eprintln!("chiba: refusing to convert {} onto itself", src.display());
+        return 1;
+    }
+    if dst.exists() && !force {
+        eprintln!(
+            "chiba: {} already exists (use --force to overwrite)",
+            dst.display()
+        );
+        return 1;
+    }
+    let body = match std::fs::read_to_string(&src) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("chiba: reading {}: {e}", src.display());
+            return 1;
+        }
+    };
+    let (out, dropped) = match importing {
+        true => (crate::todo::from_todotxt(&body), 0),
+        false => crate::todo::to_todotxt(&body),
+    };
+    if let Err(e) = crate::todo::write_atomic(&dst, &out) {
+        eprintln!("chiba: writing {}: {e}", dst.display());
+        return 1;
+    }
+    // Count on whichever side is markdown — todo.txt has no checkboxes to find.
+    let markdown = if importing { &out } else { &body };
+    let tasks = crate::todo::parse_doc(markdown).tasks.len();
+    println!("{} → {} ({tasks} tasks)", src.display(), dst.display());
+    if dropped > 0 {
+        // Never silently truncate: headings and prose have no todo.txt form.
+        eprintln!("chiba: dropped {dropped} non-task line(s) — todo.txt has no place for them");
+    }
+    0
 }
 
 fn cmd_archive(store: &mut Store, json: bool) -> i32 {
@@ -742,7 +805,7 @@ mod tests {
     #[test]
     fn find_subcommand_none_for_tui_invocations() {
         assert_eq!(find_subcommand(&argv(&[])), None);
-        assert_eq!(find_subcommand(&argv(&["todo.txt"])), None);
+        assert_eq!(find_subcommand(&argv(&["todo.md"])), None);
         assert_eq!(find_subcommand(&argv(&["--help"])), None);
         assert_eq!(find_subcommand(&argv(&["--sample"])), None);
     }

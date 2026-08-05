@@ -139,6 +139,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
+name = "chiba"
+version = "2026.7.1"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "crossterm",
+ "getrandom 0.2.17",
+ "insta",
+ "notify",
+ "qrcode",
+ "ratatui",
+ "tiny_http",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1636,21 +1651,6 @@ dependencies = [
  "chunked_transfer",
  "httpdate",
  "log",
-]
-
-[[package]]
-name = "tuxedo"
-version = "2026.7.1"
-dependencies = [
- "anyhow",
- "chrono",
- "crossterm",
- "getrandom 0.2.17",
- "insta",
- "notify",
- "qrcode",
- "ratatui",
- "tiny_http",
 ]
 
 [[package]]

@@ -303,9 +303,13 @@ mod tests {
         let mut app = build_app("old one\nold two\nold three\n");
         app.cursor = 2;
         let new_path = test_path();
-        let done = new_path.parent().expect("temp parent").join("done.txt");
+        let done = new_path.parent().expect("temp parent").join("done.md");
 
-        app.open_file(new_path.clone(), done, "fresh task\n".into());
+        app.open_file(
+            new_path.clone(),
+            done,
+            crate::app::test_support::md("fresh task\n"),
+        );
 
         assert_eq!(
             app.file_path, new_path,
@@ -374,10 +378,10 @@ mod tests {
 
         let raw = &app.tasks()[0].raw;
         assert!(
-            raw.contains("note:projects/tuxedo-tasks/write-pr-summary.md"),
+            raw.contains("note:projects/chiba-tasks/write-pr-summary.md"),
             "task should get stable generated note token: {raw}"
         );
-        let expected = dir.join("projects/tuxedo-tasks/write-pr-summary.md");
+        let expected = dir.join("projects/chiba-tasks/write-pr-summary.md");
         assert_eq!(app.take_pending_editor_path(), Some(expected.clone()));
         let body = std::fs::read_to_string(expected).expect("created note exists");
         assert!(body.starts_with("# Write PR summary\n"));

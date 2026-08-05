@@ -22,8 +22,8 @@ pub struct Archive {
 fn done_path(todo_path: &Path) -> PathBuf {
     todo_path
         .parent()
-        .map(|p| p.join("done.txt"))
-        .unwrap_or_else(|| PathBuf::from("done.txt"))
+        .map(|p| p.join("done.md"))
+        .unwrap_or_else(|| PathBuf::from("done.md"))
 }
 
 impl Archive {
@@ -198,7 +198,7 @@ impl Store {
             return ArchiveOutcome::Error(StoreError::ArchiveIo(e));
         }
         let remaining: Vec<Task> = self.tasks.iter().filter(|t| !t.done).cloned().collect();
-        let remaining_body = todo::serialize(&remaining);
+        let remaining_body = todo::serialize_doc(&remaining, &self.text);
         if let Err(e) = todo::write_atomic(&self.file_path, &remaining_body) {
             let _ = todo::write_atomic(&self.archive.path, &previous_archive_body);
             return ArchiveOutcome::Error(StoreError::Write(e));
@@ -284,7 +284,7 @@ impl Store {
     }
 
     pub(crate) fn persist(&mut self) -> Result<(), StoreError> {
-        let body = todo::serialize(&self.tasks);
+        let body = todo::serialize_doc(&self.tasks, &self.text);
         match todo::write_atomic(&self.file_path, &body) {
             Ok(()) => {
                 self.last_disk = body;
@@ -300,15 +300,12 @@ impl Store {
 mod tests {
     use super::*;
     use crate::core::Store;
-    use crate::core::test_support::build_store;
+    use crate::core::test_support::{build_store, md, write_md};
     use std::time::{Duration, Instant};
 
     fn dir_for(tag: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!(
-            "tuxedo-archive-test-{}-{}",
-            std::process::id(),
-            tag
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("chiba-archive-test-{}-{}", std::process::id(), tag));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -317,16 +314,16 @@ mod tests {
     #[test]
     fn archive_writes_done_file_then_truncates_todo() {
         let dir = dir_for("ok");
-        let todo_path = dir.join("todo.txt");
+        let todo_path = dir.join("todo.md");
         let raw = "(A) 2026-05-01 keep this +work\n\
                    x 2026-05-05 2026-05-01 archive this +work\n";
-        std::fs::write(&todo_path, raw).unwrap();
-        let mut store = Store::open_sync(todo_path.clone(), raw.to_string(), "2026-05-06".into());
+        write_md(&todo_path, raw).unwrap();
+        let mut store = Store::open_sync(todo_path.clone(), md(raw), "2026-05-06".into());
         assert!(matches!(
             store.archive_completed(),
             ArchiveOutcome::Archived { count: 1 }
         ));
-        let done = std::fs::read_to_string(dir.join("done.txt")).unwrap();
+        let done = std::fs::read_to_string(dir.join("done.md")).unwrap();
         assert!(done.contains("archive this"));
         let todo = std::fs::read_to_string(&todo_path).unwrap();
         assert!(todo.contains("keep this"));
@@ -337,13 +334,13 @@ mod tests {
     #[test]
     fn archive_appends_to_existing_done_file() {
         let dir = dir_for("append");
-        let todo_path = dir.join("todo.txt");
-        std::fs::write(dir.join("done.txt"), "x 2026-04-01 2026-03-01 prior\n").unwrap();
+        let todo_path = dir.join("todo.md");
+        write_md(dir.join("done.md"), "x 2026-04-01 2026-03-01 prior\n").unwrap();
         let raw = "x 2026-05-05 2026-05-01 fresh +work\n";
-        std::fs::write(&todo_path, raw).unwrap();
-        let mut store = Store::open_sync(todo_path, raw.to_string(), "2026-05-06".into());
+        write_md(&todo_path, raw).unwrap();
+        let mut store = Store::open_sync(todo_path, md(raw), "2026-05-06".into());
         store.archive_completed();
-        let done = std::fs::read_to_string(dir.join("done.txt")).unwrap();
+        let done = std::fs::read_to_string(dir.join("done.md")).unwrap();
         assert!(done.contains("prior"));
         assert!(done.contains("fresh"));
         let _ = std::fs::remove_dir_all(&dir);
@@ -367,16 +364,16 @@ mod tests {
     #[test]
     fn archive_loader_populates_archived_from_done_file() {
         let dir = dir_for("loader");
-        let todo_path = dir.join("todo.txt");
-        std::fs::write(
-            dir.join("done.txt"),
+        let todo_path = dir.join("todo.md");
+        write_md(
+            dir.join("done.md"),
             "x 2026-05-01 2026-04-01 first\nx 2026-05-02 2026-04-15 second\n",
         )
         .unwrap();
-        std::fs::write(&todo_path, "(A) 2026-05-06 still open\n").unwrap();
+        write_md(&todo_path, "(A) 2026-05-06 still open\n").unwrap();
         let mut store = Store::new(
             todo_path,
-            "(A) 2026-05-06 still open\n".to_string(),
+            md("(A) 2026-05-06 still open\n"),
             "2026-05-06".into(),
         );
         wait_archive_loaded(&mut store);
@@ -395,10 +392,10 @@ mod tests {
     #[test]
     fn archive_completed_populates_in_memory_archived() {
         let dir = dir_for("memsync");
-        let todo_path = dir.join("todo.txt");
+        let todo_path = dir.join("todo.md");
         let raw = "x 2026-05-05 2026-05-01 done one\nx 2026-05-06 2026-05-01 done two\n";
-        std::fs::write(&todo_path, raw).unwrap();
-        let mut store = Store::new(todo_path, raw.to_string(), "2026-05-06".into());
+        write_md(&todo_path, raw).unwrap();
+        let mut store = Store::new(todo_path, md(raw), "2026-05-06".into());
         store.archive_completed();
         assert_eq!(store.archive.len(), 2);
         let _ = store.poll_archive();
@@ -411,18 +408,14 @@ mod tests {
     #[test]
     fn poll_archive_detects_external_done_edit() {
         let dir = dir_for("external");
-        let todo_path = dir.join("todo.txt");
-        std::fs::write(&todo_path, "(A) 2026-05-06 a\n").unwrap();
-        std::fs::write(dir.join("done.txt"), "").unwrap();
-        let mut store = Store::new(
-            todo_path,
-            "(A) 2026-05-06 a\n".to_string(),
-            "2026-05-06".into(),
-        );
+        let todo_path = dir.join("todo.md");
+        write_md(&todo_path, "(A) 2026-05-06 a\n").unwrap();
+        write_md(dir.join("done.md"), "").unwrap();
+        let mut store = Store::new(todo_path, md("(A) 2026-05-06 a\n"), "2026-05-06".into());
         wait_archive_loaded(&mut store);
         assert!(store.archive.is_empty());
-        std::fs::write(
-            dir.join("done.txt"),
+        write_md(
+            dir.join("done.md"),
             "x 2026-05-05 2026-05-01 added externally\n",
         )
         .unwrap();
@@ -438,8 +431,8 @@ mod tests {
         let mut store = build_store("a\n");
         let path = store.archive.path().to_path_buf();
         store.archive = Archive::for_test(
-            todo::parse_file("x 2026-05-01 2026-04-01 prior\n"),
-            "x 2026-05-01 2026-04-01 prior\n".to_string(),
+            todo::parse_file(&md("x 2026-05-01 2026-04-01 prior\n")),
+            md("x 2026-05-01 2026-04-01 prior\n"),
             path,
         );
         let err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied");
@@ -450,13 +443,13 @@ mod tests {
     #[test]
     fn archive_delete_refreshes_done_txt_before_writing() {
         let dir = dir_for("delete-refresh");
-        let todo_path = dir.join("todo.txt");
-        let done_path = dir.join("done.txt");
-        std::fs::write(&todo_path, "open\n").unwrap();
-        std::fs::write(&done_path, "x 2026-05-01 2026-04-01 stale\n").unwrap();
-        let mut store = Store::new(todo_path, "open\n".to_string(), "2026-05-06".into());
+        let todo_path = dir.join("todo.md");
+        let done_path = dir.join("done.md");
+        write_md(&todo_path, "open\n").unwrap();
+        write_md(&done_path, "x 2026-05-01 2026-04-01 stale\n").unwrap();
+        let mut store = Store::new(todo_path, md("open\n"), "2026-05-06".into());
         wait_archive_loaded(&mut store);
-        std::fs::write(
+        write_md(
             &done_path,
             "x 2026-05-01 2026-04-01 stale\nx 2026-05-02 2026-04-02 external\n",
         )
@@ -474,10 +467,10 @@ mod tests {
     #[test]
     fn unarchive_recomplete_does_not_duplicate_recurring_successor() {
         let dir = dir_for("rec-roundtrip");
-        let todo_path = dir.join("todo.txt");
+        let todo_path = dir.join("todo.md");
         let raw = "Water plants due:2026-05-06 rec:1d\n";
-        std::fs::write(&todo_path, raw).unwrap();
-        let mut store = Store::new(todo_path, raw.to_string(), "2026-05-06".into());
+        write_md(&todo_path, raw).unwrap();
+        let mut store = Store::new(todo_path, md(raw), "2026-05-06".into());
         store.toggle_complete(0);
         assert_eq!(store.tasks().len(), 2);
         store.archive_completed();
@@ -505,8 +498,8 @@ mod tests {
     fn persist_reports_write_failure() {
         let mut store = build_store("a\n");
         let missing_parent = std::env::temp_dir()
-            .join(format!("tuxedo-missing-parent-{}", std::process::id()))
-            .join("todo.txt");
+            .join(format!("chiba-missing-parent-{}", std::process::id()))
+            .join("todo.md");
         let _ = std::fs::remove_dir_all(missing_parent.parent().unwrap());
         store.file_path = missing_parent;
         assert!(store.persist().is_err());

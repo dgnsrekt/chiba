@@ -1276,17 +1276,13 @@ mod tests {
 
     fn build_insert_app(seed: &str, draft: &str) -> App {
         let path = std::env::temp_dir().join(format!(
-            "tuxedo-dialog-test-{}-{}.txt",
+            "chiba-dialog-test-{}-{}.md",
             std::process::id(),
             seed.len(),
         ));
-        std::fs::write(&path, seed).unwrap();
-        let mut app = App::new(
-            path,
-            seed.to_string(),
-            "2026-05-06".to_string(),
-            Config::default(),
-        );
+        let seed = crate::core::test_support::md(seed);
+        std::fs::write(&path, &seed).unwrap();
+        let mut app = App::new(path, seed, "2026-05-06".to_string(), Config::default());
         app.mode = Mode::Insert;
         app.draft_set_insert(draft.to_string());
         app
@@ -1560,17 +1556,13 @@ mod tests {
 
     fn build_prompt_app(seed: &str, draft: &str, mode: Mode) -> App {
         let path = std::env::temp_dir().join(format!(
-            "tuxedo-prompt-dialog-test-{}-{}.txt",
+            "chiba-prompt-dialog-test-{}-{}.md",
             std::process::id(),
             seed.len(),
         ));
-        std::fs::write(&path, seed).unwrap();
-        let mut app = App::new(
-            path,
-            seed.to_string(),
-            "2026-05-06".to_string(),
-            Config::default(),
-        );
+        let seed = crate::core::test_support::md(seed);
+        std::fs::write(&path, &seed).unwrap();
+        let mut app = App::new(path, seed, "2026-05-06".to_string(), Config::default());
         app.mode = mode;
         app.draft_set(draft.to_string());
         app

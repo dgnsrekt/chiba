@@ -166,9 +166,9 @@ mod tests {
         let mut app = build_app("a\n");
         let path = app.archive().path().to_path_buf();
         app.store.archive = crate::app::Archive::for_test(
-            crate::todo::parse_file(
+            crate::todo::parse_file(&crate::core::test_support::md(
                 "x 2026-05-01 2026-04-01 first\nx 2026-05-02 2026-04-02 second\n",
-            ),
+            )),
             String::new(),
             path,
         );
@@ -268,9 +268,9 @@ mod tests {
         let mut app = build_app("a\n");
         let path = app.archive().path().to_path_buf();
         app.store.archive = crate::app::Archive::for_test(
-            crate::todo::parse_file(
+            crate::todo::parse_file(&crate::core::test_support::md(
                 "x 2026-04-01 2026-03-01 older\nx 2026-05-02 2026-04-02 newer\n",
-            ),
+            )),
             String::new(),
             path,
         );

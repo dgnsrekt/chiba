@@ -20,14 +20,14 @@ use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;
 use ratatui::style::{Color, Modifier};
 
-use tuxedo::app::{
+use chiba::app::{
     App, BuilderField, CalendarState, CalendarTarget, Density, DraftOverlay, Mode,
     PriorityChooserState, RecurrenceBuilderState, SlashMenuState, View,
 };
-use tuxedo::config::Config;
-use tuxedo::recurrence::RecUnit;
-use tuxedo::sample;
-use tuxedo::ui;
+use chiba::config::Config;
+use chiba::recurrence::RecUnit;
+use chiba::sample;
+use chiba::ui;
 
 const COLS: u16 = 100;
 const ROWS: u16 = 32;
@@ -35,13 +35,13 @@ const ROWS: u16 = 32;
 /// File path used in every fixture. Hard-coded (not `temp_dir()`) so the
 /// header line that displays it stays byte-identical across runs and
 /// machines. The file is never actually written; `App::new` only stores it.
-const FIXTURE_PATH: &str = "/tmp/tuxedo-snapshot.txt";
+const FIXTURE_PATH: &str = "/tmp/chiba-snapshot.md";
 
 /// Config-file path for the settings-overlay fixture. Hard-coded for the
 /// same reason as `FIXTURE_PATH`: `Config::path()` resolves `$HOME` at
 /// runtime, which would otherwise bake the author's home directory into
 /// the snapshot and break on any other machine (CI included).
-const FIXTURE_CONFIG_PATH: &str = "/tmp/tuxedo-snapshot.toml";
+const FIXTURE_CONFIG_PATH: &str = "/tmp/chiba-snapshot.toml";
 
 fn make_app() -> App {
     // Seed the fixture file on disk so any snapshot test that exercises a
@@ -272,11 +272,11 @@ fn list_sidebar_empty_hints() {
     // Tasks present but none carry +project / @context tags — the sidebar
     // should fall back to the "tag with +project" / "tag with @context" hints
     // instead of leaving the PROJECTS / CONTEXTS sections blank.
-    let body = "(A) Buy milk\n(B) Call mom\nWrite up notes\n";
-    std::fs::write(FIXTURE_PATH, body).expect("seed fixture file");
+    let body = chiba::todo::from_todotxt("(A) Buy milk\n(B) Call mom\nWrite up notes\n");
+    std::fs::write(FIXTURE_PATH, &body).expect("seed fixture file");
     let mut app = App::new(
         PathBuf::from(FIXTURE_PATH),
-        body.to_string(),
+        body,
         "2026-05-06".to_string(),
         Config::default(),
     );
@@ -363,7 +363,7 @@ fn insert_dialog_after_nl_parse() {
     // runs after as a contract check on AddOutcome::Parsed — a regression
     // either way will fail the test.
     snapshot_app("insert_dialog_after_nl_parse", &app);
-    assert_eq!(outcome, tuxedo::app::AddOutcome::Parsed);
+    assert_eq!(outcome, chiba::app::AddOutcome::Parsed);
 }
 
 #[test]
@@ -466,7 +466,7 @@ fn many_tasks_body(n: usize) -> String {
     let mut s = String::new();
     for i in 0..n {
         s.push_str(&format!(
-            "2026-05-04 row-{:03} task body for scrolling +work @laptop\n",
+            "- [ ] 2026-05-04 row-{:03} task body for scrolling +work @laptop\n",
             i
         ));
     }
@@ -498,7 +498,7 @@ fn list_scrolls_to_keep_cursor_visible_when_below_fold() {
     app.prefs.layout.right = false;
     // Switch to file-order sort so rows render flat (no priority/due groups
     // injecting extra header lines into the line-index math).
-    while app.prefs.sort != tuxedo::app::Sort::File {
+    while app.prefs.sort != chiba::app::Sort::File {
         app.cycle_sort();
     }
 

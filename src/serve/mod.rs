@@ -65,11 +65,11 @@ pub fn start(todo_path: PathBuf, token: String, port: u16) -> Result<ShareInfo> 
     let token_arc: Arc<str> = Arc::from(token.as_str());
     let path_arc: Arc<Path> = Arc::from(todo_path.as_path());
     thread::Builder::new()
-        .name("tuxedo-capture-server".into())
+        .name("chiba-capture-server".into())
         .spawn(move || {
             for request in server.incoming_requests() {
                 if let Err(e) = handle(request, &path_arc, &token_arc) {
-                    eprintln!("tuxedo capture: request error: {e}");
+                    eprintln!("chiba capture: request error: {e}");
                 }
             }
         })
@@ -248,12 +248,12 @@ mod tests {
     #[test]
     fn tasks_view_separates_open_and_inbox() {
         let dir =
-            std::env::temp_dir().join(format!("tuxedo-serve-tasks-view-{}", std::process::id()));
+            std::env::temp_dir().join(format!("chiba-serve-tasks-view-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let todo_path = dir.join("todo.txt");
+        let todo_path = dir.join("todo.md");
         std::fs::write(&todo_path, "(A) 2026-05-01 a\n").unwrap();
-        std::fs::write(dir.join("inbox.txt"), "buy milk\n").unwrap();
+        std::fs::write(dir.join("inbox.md"), "buy milk\n").unwrap();
         let view = build_tasks_view(&todo_path).unwrap();
         let (open, inbox) = view
             .split_once("\n--- inbox (pending) ---\n")
@@ -265,10 +265,10 @@ mod tests {
     #[test]
     fn tasks_view_handles_missing_inbox() {
         let dir =
-            std::env::temp_dir().join(format!("tuxedo-serve-tasks-missing-{}", std::process::id()));
+            std::env::temp_dir().join(format!("chiba-serve-tasks-missing-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let todo_path = dir.join("todo.txt");
+        let todo_path = dir.join("todo.md");
         std::fs::write(&todo_path, "a\n").unwrap();
         let view = build_tasks_view(&todo_path).unwrap();
         assert!(view.starts_with("a\n"));
@@ -277,10 +277,10 @@ mod tests {
 
     #[test]
     fn start_binds_and_serves() {
-        let dir = std::env::temp_dir().join(format!("tuxedo-serve-start-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("chiba-serve-start-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let todo_path = dir.join("todo.txt");
+        let todo_path = dir.join("todo.md");
         std::fs::write(&todo_path, "").unwrap();
         let token = net::generate_token().unwrap();
         let info = start(todo_path.clone(), token.clone(), 0).unwrap();

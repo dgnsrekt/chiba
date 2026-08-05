@@ -30,6 +30,9 @@ pub use outcome::{
 /// archive, undo history, and the on-disk reconciliation snapshot.
 pub struct Store {
     pub(crate) tasks: Vec<Task>,
+    /// Non-task lines of the todo file (headings, prose, fenced code), pinned
+    /// to their line positions so writing the file back never destroys them.
+    pub(crate) text: Vec<(usize, String)>,
     pub(crate) history: History,
     pub(crate) archive: Archive,
     pub(crate) file_path: PathBuf,
@@ -79,9 +82,10 @@ impl Store {
     }
 
     fn assemble(file_path: PathBuf, archive: Archive, body: String, today: String) -> Self {
-        let tasks = todo::parse_file(&body);
+        let doc = todo::parse_doc(&body);
         Self {
-            tasks,
+            tasks: doc.tasks,
+            text: doc.text,
             history: History::default(),
             archive,
             file_path,
