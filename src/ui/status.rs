@@ -70,7 +70,10 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         right_parts.push(format!("{} selected", app.selection.len()));
     }
     right_parts.push(app.today().to_string());
-    right_parts.push(concat!(env!("CARGO_PKG_NAME"), " ", env!("CARGO_PKG_VERSION")).to_string());
+    // The wordmark is appended separately below: the rose takes priority-A red
+    // while the rest of the right-hand text stays dim, so it can't be part of
+    // the joined string.
+    let wordmark = concat!(env!("CARGO_PKG_NAME"), " ", env!("CARGO_PKG_VERSION"));
     // Track where the update suffix would slot in so we can paint it in the
     // accent color (the rest of the right text is dim).
     let update_suffix = app
@@ -92,7 +95,9 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         .as_deref()
         .map(|s| s.chars().count() as u16)
         .unwrap_or(0);
-    let right_w = right_text.chars().count() as u16 + update_w + 1;
+    // " · " + rose + " " + wordmark, all appended after `right_text`.
+    let wordmark_w = wordmark.chars().count() as u16 + 5;
+    let right_w = right_text.chars().count() as u16 + wordmark_w + update_w + 1;
     let middle_w = area.width.saturating_sub(chip_w).saturating_sub(right_w);
 
     let [chip_area, mid_area, right_area] = Layout::horizontal([
@@ -122,24 +127,38 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         mid_area,
     );
 
+    // `ROSE` is chiba's wordmark glyph — the thrown rose, in the same
+    // priority-A red as the bloom in `ui::logo`. Cosmetic only: a font without
+    // U+273F shows a box and nothing else breaks.
+    const ROSE: &str = "✿";
+    let mark = |dim: Style| {
+        vec![
+            Span::styled(" · ", dim),
+            Span::styled(ROSE, Style::default().fg(theme.pri_a)),
+            Span::styled(format!(" {wordmark}"), dim),
+        ]
+    };
+
     let right_line = if let Some(suffix) = update_suffix {
-        Line::from(vec![
-            Span::styled(right_text, Style::default().fg(theme.dim)),
+        let dim = Style::default().fg(theme.dim);
+        let mut spans = vec![Span::styled(right_text, dim)];
+        spans.extend(mark(dim));
+        spans.extend([
             Span::styled(
                 suffix,
                 Style::default()
                     .fg(theme.accent)
                     .add_modifier(Modifier::BOLD),
             ),
-            Span::styled(" ", Style::default().fg(theme.dim)),
-        ])
-        .style(Style::default().bg(theme.statusbar))
+            Span::styled(" ", dim),
+        ]);
+        Line::from(spans).style(Style::default().bg(theme.statusbar))
     } else {
-        Line::from(Span::styled(
-            format!("{right_text} "),
-            Style::default().fg(theme.dim),
-        ))
-        .style(Style::default().bg(theme.statusbar))
+        let dim = Style::default().fg(theme.dim);
+        let mut spans = vec![Span::styled(right_text, dim)];
+        spans.extend(mark(dim));
+        spans.push(Span::styled(" ", dim));
+        Line::from(spans).style(Style::default().bg(theme.statusbar))
     };
     frame.render_widget(
         Paragraph::new(right_line)
