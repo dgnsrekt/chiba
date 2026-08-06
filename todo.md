@@ -13,6 +13,8 @@ Inherited from tuxedo, plus the chiba-flat work. Eat your own dog food.
 
 # chiba-flat follow-ups
 
+- [x] 2026-08-05 herdr plugin: reopen chiba in panes that had it after a restart +chiba @dev
+
 - [ ] (B) 2026-08-05 Direction-B hedges: sort-as-view and archive_mode in_place — see issue #1 +chiba @dev
 - [ ] (C) 2026-08-05 Decide priority rendering: keep (A) or offer Obsidian Tasks emoji +chiba @dev
 - [ ] (C) 2026-08-05 Configurable bullet for newly created tasks +chiba @dev

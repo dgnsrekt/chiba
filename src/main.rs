@@ -115,6 +115,9 @@ fn main() -> Result<()> {
         }
     };
     let done = cli::done_path(&path);
+    // Leave a breadcrumb so herdr's restore can bring chiba back into this
+    // pane. No-op outside herdr; see src/herdr.rs.
+    chiba::herdr::mark_running(&path);
     let unmigrated = chiba::migrate::unmigrated_lines(&body);
     let mut app_state = App::new_with_done(path.clone(), done, body, today, cfg);
     app_state.config_path = Config::path();
@@ -170,6 +173,10 @@ fn main() -> Result<()> {
     if app_state.mode != Mode::Welcome {
         eprintln!("chiba · {}", app_state.file_path.display());
     }
+    // A deliberate quit means "don't reopen me next time herdr restarts".
+    // Being killed by a restart leaves the marker in place, which is the whole
+    // point of it.
+    chiba::herdr::clear_running();
     result
 }
 
@@ -203,6 +210,8 @@ fn print_usage() {
     println!("  listcon, lsc              list @contexts");
     println!("  migrate [DIR]             adopt markdown: todo/done/inbox .txt -> .md");
     println!("  eject [DIR]               hand a directory back to todo.txt");
+    println!("  integration herdr         install the herdr plugin (reopens chiba on restart)");
+    println!("  integration status        show herdr plugin status");
     println!("  import SRC [DST]          convert one todo.txt file to markdown");
     println!("  export SRC [DST]          convert one markdown file back to todo.txt");
     println!("  update                    print instructions for upgrading chiba");

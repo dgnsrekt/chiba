@@ -718,6 +718,30 @@ plain `cargo` commands if you don't use [mise](https://mise.jdx.dev/).
 - [todo.txt](http://todotxt.org/) by Gina Trapani — the task grammar chiba still uses inside each checkbox.
 - [ratatui](https://ratatui.rs/) and [crossterm](https://github.com/crossterm-rs/crossterm) — the rendering and terminal-input crates chiba is built on.
 
+## herdr
+
+If you run chiba inside [herdr](https://github.com/herdrdev/herdr), a pane that
+was running chiba comes back as a plain shell after a herdr restart — herdr only
+relaunches programs for its own built-in agent list.
+
+```sh
+chiba integration herdr     # install the plugin
+chiba integration status    # check it
+```
+
+chiba then leaves a marker while it runs, and a small herdr plugin types `chiba`
+back into those panes from its `[[startup]]` hook once herdr has restored the
+session. Quitting chiba removes the marker, so a pane you deliberately closed
+stays closed; a pane killed by the restart comes back.
+
+Removal is `chiba integration herdr --uninstall`. Everything lives in
+`~/.config/chiba/herdr/` and is registered with `herdr plugin link` — chiba never
+edits herdr's own config.
+
+*Naming note: this installs a herdr **plugin**. herdr's `integration install`
+list is a closed set of AI agents that chiba can't join without patching herdr;
+its plugin system is the part open to third parties.*
+
 ## Staying current with tuxedo
 
 chiba is a fork, so upstream's fixes are chiba's fixes. Two scripts keep that

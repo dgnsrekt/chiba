@@ -1,0 +1,16 @@
+# CHIBA_HERDR_PLUGIN_VERSION=1
+# Installed by `chiba integration herdr`.
+# Managed by chiba; reinstalling overwrites this file.
+
+id = "dgnsrekt.chiba"
+name = "chiba"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+description = "Reopen chiba in panes that were running it before a restart."
+platforms = ["linux", "macos"]
+
+# Runs once after herdr restores the session and its socket is ready, and again
+# after a live handoff. This is the only lifecycle hook herdr exposes — the
+# `[[events]]` list has no server-started event.
+[[startup]]
+command = ["sh", "restore.sh"]

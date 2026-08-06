@@ -2,6 +2,7 @@
 //! [`crate::core::Store`]. Invoked by `main` when the first argument is a
 //! recognized subcommand; otherwise the binary launches the TUI.
 
+mod integration;
 mod json;
 
 use anyhow::{Context, Result};
@@ -49,9 +50,38 @@ fn parse_args(rest: &[String]) -> Result<Args, String> {
 
 /// Every recognized subcommand and alias.
 const SUBCOMMANDS: &[&str] = &[
-    "add", "a", "append", "app", "prepend", "prep", "replace", "pri", "p", "depri", "dp", "done",
-    "do", "complete", "del", "rm", "archive", "list", "ls", "listall", "lsa", "listpri", "lsp",
-    "listproj", "lsprj", "listcon", "lsc", "import", "export", "migrate", "eject",
+    "add",
+    "a",
+    "append",
+    "app",
+    "prepend",
+    "prep",
+    "replace",
+    "pri",
+    "p",
+    "depri",
+    "dp",
+    "done",
+    "do",
+    "complete",
+    "del",
+    "rm",
+    "archive",
+    "list",
+    "ls",
+    "listall",
+    "lsa",
+    "listpri",
+    "lsp",
+    "listproj",
+    "lsprj",
+    "listcon",
+    "lsc",
+    "import",
+    "export",
+    "migrate",
+    "eject",
+    "integration",
 ];
 
 /// Locate the subcommand: the first non-global token, if it is a known
@@ -95,6 +125,9 @@ pub fn run(argv: &[String]) -> Result<Option<i32>> {
     // Format conversion and migration run on files directly — no store.
     if cmd == "import" || cmd == "export" {
         return Ok(Some(cmd_convert(&cmd, &args.free, args.force)));
+    }
+    if cmd == "integration" {
+        return Ok(Some(cmd_integration(&args.free, args.force)));
     }
     if cmd == "migrate" || cmd == "eject" {
         return Ok(Some(cmd_migrate(
@@ -597,6 +630,32 @@ fn cmd_del(store: &mut Store, pos: &[String], json: bool, force: bool) -> i32 {
 ///
 /// Both convert `todo`, `done`, and `inbox` together: migrating the task file
 /// alone leaves the archive behind, which reads as "my history vanished".
+/// `chiba integration herdr [--uninstall]` and `chiba integration status`.
+///
+/// Naming note: this installs a herdr **plugin**, not a herdr *integration*.
+/// herdr's `integration install` list is a closed enum of AI agents that chiba
+/// cannot join without a patch to herdr; its plugin system is the part that is
+/// actually open to third parties. The command keeps the word "integration"
+/// because that is what a user is trying to do.
+fn cmd_integration(pos: &[String], force: bool) -> i32 {
+    match pos.first().map(String::as_str) {
+        Some("herdr") => {
+            let uninstall = pos.iter().any(|a| a == "--uninstall");
+            match uninstall {
+                true => integration::uninstall_herdr(),
+                false => integration::install_herdr(force),
+            }
+        }
+        Some("status") | None => integration::status_herdr(),
+        Some(other) => {
+            eprintln!("chiba: unknown integration: {other}");
+            eprintln!("usage: chiba integration herdr [--uninstall]");
+            eprintln!("       chiba integration status");
+            2
+        }
+    }
+}
+
 fn cmd_migrate(cmd: &str, pos: &[String], force: bool, dry_run: bool) -> i32 {
     use crate::migrate::{self, Direction, Error};
 
