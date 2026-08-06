@@ -1,5 +1,5 @@
 //! One-shot CLI commands (a todo.txt-cli-style surface), driving the headless
-//! [`Store`](crate::core::Store). Invoked by `main` when the first argument is a
+//! [`crate::core::Store`]. Invoked by `main` when the first argument is a
 //! recognized subcommand; otherwise the binary launches the TUI.
 
 mod json;
@@ -154,8 +154,8 @@ pub fn run(argv: &[String]) -> Result<Option<i32>> {
     Ok(Some(code))
 }
 
-/// Stop before touching a directory that holds a `todo.txt` and no `todo.md`.
-/// Returns an exit code when the caller must not proceed.
+/// A directory as worth printing to a human: the resolved absolute path, or
+/// "this folder" when we'd otherwise emit a bare `.`.
 fn describe(dir: &std::path::Path) -> String {
     match dir.canonicalize() {
         Ok(p) => p.display().to_string(),
@@ -164,6 +164,8 @@ fn describe(dir: &std::path::Path) -> String {
     }
 }
 
+/// Stop before touching a directory that holds a `todo.txt` and no `todo.md`.
+/// Returns an exit code when the caller must not proceed.
 fn refuse_unmigrated_dir() -> Option<i32> {
     let dir = crate::cli::resolve_dir();
     if crate::migrate::state(&dir) != crate::migrate::State::TodoTxt {
@@ -478,7 +480,7 @@ fn cmd_done(store: &mut Store, pos: &[String], json: bool) -> i32 {
             // todo.sh format for the completion itself.
             println!("{n} {}", t.raw);
             println!("{prefix}: {n} marked as done.");
-            // Recurrence is a chiba feature todo.sh lacks; surface the spawned
+            // Recurrence is inherited from tuxedo and todo.sh lacks it; surface
             // next instance as a freshly-added task in the same idiom.
             if let Some((nn, nt)) = next {
                 println!("{nn} {}", nt.raw);

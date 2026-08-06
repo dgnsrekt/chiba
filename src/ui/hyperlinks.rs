@@ -1,6 +1,6 @@
 //! OSC 8 hyperlink overlay.
 //!
-//! Embedding OSC 8 escape sequences directly inside a [`Cell`]'s symbol breaks
+//! Embedding OSC 8 escape sequences directly inside a ratatui `Cell`'s symbol breaks
 //! ratatui's diff: `Buffer::diff` calls `UnicodeWidthStr::width()` on the
 //! symbol to compute `to_skip`, so the printable bytes of an escape sequence
 //! (`]8;;...`) inflate the symbol's width and cause subsequent cells to be

@@ -34,6 +34,10 @@ run = [
     "vhs docs/demo.tape",
 ]
 
+[tasks.rename_audit]
+description = "List every line where the fork rename turned 'tuxedo' into 'chiba', for review."
+run = "python3 scripts/rename-audit.py"
+
 [tasks.upstream]
 description = "Report how far behind webstonehq/tuxedo this fork has drifted."
 run = "./scripts/upstream-status.sh"
