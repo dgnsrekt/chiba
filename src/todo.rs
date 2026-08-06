@@ -50,7 +50,7 @@ pub struct Task {
     pub bullet: char,
     /// The canonical todo.txt body — *without* the markdown wrapper, but
     /// *with* the leading `x ` when done. Keeping `raw` in todo.txt form is
-    /// what lets every mutation, tokenizer, and filter inherited from chiba
+    /// what lets every mutation, tokenizer, and filter inherited from tuxedo
     /// keep working untouched; the wrapper is re-applied at serialize time.
     pub raw: String,
     pub clean_raw: String,

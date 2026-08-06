@@ -1,13 +1,20 @@
 # chiba
 
+**Same man, different mask.**
+
+![tuxedo's bowtie and chiba's rose, side by side](docs/banner.svg)
+
 A fast, keyboard-driven terminal UI for markdown task lists.
 Vim-style bindings, atomic writes, instant external-edit detection, and five
 hand-tuned themes — all in a single static binary.
 
-chiba is a markdown-native fork of [chiba](https://github.com/dgnsrekt/chiba).
-Same UI, same natural-language add, same CLI — but it reads and writes
-`- [ ]` checkboxes in a real markdown file, and it never destroys the headings,
-prose, or code fences around them.
+chiba is a markdown-native fork of
+[tuxedo](https://github.com/webstonehq/tuxedo). Same UI, same natural-language
+add, same CLI — but it reads and writes `- [ ]` checkboxes in a real markdown
+file, and it never destroys the headings, prose, or code fences around them.
+
+Tuxedo Mask is the disguise; Mamoru Chiba is the man underneath. tuxedo wears
+todo.txt, chiba wears markdown, and the bowtie gives way to the rose he throws.
 
 Not released yet — private while it gets a real shakedown. Build from a clone:
 

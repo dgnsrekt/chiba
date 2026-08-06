@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 280" width="880" height="280">
+<rect width="880" height="280" rx="14" fill="#1a1c1f"/>
+<rect x="143" y="80" width="22" height="22" fill="#8aa9c9"/>
+<rect x="275" y="80" width="22" height="22" fill="#8aa9c9"/>
+<rect x="143" y="102" width="22" height="22" fill="#8aa9c9"/>
+<rect x="165" y="102" width="22" height="22" fill="#8aa9c9"/>
+<rect x="209" y="102" width="22" height="22" fill="#e07a7a"/>
+<rect x="253" y="102" width="22" height="22" fill="#8aa9c9"/>
+<rect x="275" y="102" width="22" height="22" fill="#8aa9c9"/>
+<rect x="143" y="124" width="22" height="22" fill="#8aa9c9"/>
+<rect x="165" y="124" width="22" height="22" fill="#8aa9c9"/>
+<rect x="187" y="124" width="22" height="22" fill="#8aa9c9"/>
+<rect x="209" y="124" width="22" height="22" fill="#e07a7a"/>
+<rect x="231" y="124" width="22" height="22" fill="#8aa9c9"/>
+<rect x="253" y="124" width="22" height="22" fill="#8aa9c9"/>
+<rect x="275" y="124" width="22" height="22" fill="#8aa9c9"/>
+<rect x="143" y="146" width="22" height="22" fill="#8aa9c9"/>
+<rect x="165" y="146" width="22" height="22" fill="#8aa9c9"/>
+<rect x="209" y="146" width="22" height="22" fill="#e07a7a"/>
+<rect x="253" y="146" width="22" height="22" fill="#8aa9c9"/>
+<rect x="275" y="146" width="22" height="22" fill="#8aa9c9"/>
+<rect x="143" y="168" width="22" height="22" fill="#8aa9c9"/>
+<rect x="275" y="168" width="22" height="22" fill="#8aa9c9"/>
+<line x1="440" y1="64" x2="440" y2="228" stroke="#454b54" stroke-width="2"/>
+<rect x="594" y="80" width="11" height="11" fill="#e07a7a"/>
+<rect x="605" y="80" width="11" height="11" fill="#e07a7a"/>
+<rect x="616" y="80" width="11" height="11" fill="#e07a7a"/>
+<rect x="627" y="80" width="11" height="11" fill="#e07a7a"/>
+<rect x="583" y="91" width="11" height="11" fill="#e07a7a"/>
+<rect x="594" y="91" width="11" height="11" fill="#e07a7a"/>
+<rect x="605" y="91" width="11" height="11" fill="#e07a7a"/>
+<rect x="616" y="91" width="11" height="11" fill="#e07a7a"/>
+<rect x="627" y="91" width="11" height="11" fill="#e07a7a"/>
+<rect x="638" y="91" width="11" height="11" fill="#e07a7a"/>
+<rect x="583" y="102" width="11" height="11" fill="#e07a7a"/>
+<rect x="594" y="102" width="11" height="11" fill="#e07a7a"/>
+<rect x="605" y="102" width="11" height="11" fill="#e07a7a"/>
+<rect x="616" y="102" width="11" height="11" fill="#e07a7a"/>
+<rect x="627" y="102" width="11" height="11" fill="#e07a7a"/>
+<rect x="638" y="102" width="11" height="11" fill="#e07a7a"/>
+<rect x="594" y="113" width="11" height="11" fill="#e07a7a"/>
+<rect x="605" y="113" width="11" height="11" fill="#e07a7a"/>
+<rect x="616" y="113" width="11" height="11" fill="#e07a7a"/>
+<rect x="627" y="113" width="11" height="11" fill="#e07a7a"/>
+<rect x="649" y="113" width="11" height="11" fill="#8aa9c9"/>
+<rect x="605" y="124" width="11" height="11" fill="#e07a7a"/>
+<rect x="616" y="124" width="11" height="11" fill="#e07a7a"/>
+<rect x="660" y="124" width="11" height="11" fill="#8aa9c9"/>
+<rect x="671" y="135" width="11" height="11" fill="#8aa9c9"/>
+<rect x="638" y="146" width="11" height="11" fill="#8aa9c9"/>
+<rect x="649" y="146" width="11" height="11" fill="#8aa9c9"/>
+<rect x="660" y="146" width="11" height="11" fill="#8aa9c9"/>
+<rect x="682" y="146" width="11" height="11" fill="#8aa9c9"/>
+<rect x="693" y="157" width="11" height="11" fill="#8aa9c9"/>
+<rect x="704" y="168" width="11" height="11" fill="#8aa9c9"/>
+<rect x="715" y="179" width="11" height="11" fill="#8aa9c9"/>
+<text x="220" y="230" fill="#c8ccd4" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="21" text-anchor="middle">tuxedo</text>
+<text x="220" y="255" fill="#454b54" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" text-anchor="middle">todo.txt</text>
+<text x="660" y="230" fill="#c8ccd4" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="21" text-anchor="middle">chiba</text>
+<text x="660" y="255" fill="#454b54" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" text-anchor="middle">markdown</text>
+</svg>
