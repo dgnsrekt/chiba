@@ -8,9 +8,11 @@
 //! (`assets/herdr/`) reads those markers from its `[[startup]]` hook and types
 //! `chiba` back into the matching panes.
 //!
-//! The marker is written on start and removed on a clean exit, which encodes
-//! the distinction that matters: **quitting** chiba should not resurrect it next
-//! boot, but being **killed** by a herdr restart should.
+//! The marker is written on start and removed only on a *deliberate quit*,
+//! which encodes the distinction that matters: **quitting** chiba should not
+//! resurrect it next boot, but being **killed** by a herdr restart should. See
+//! [`should_clear_on_exit`] — getting that backwards silently defeats the whole
+//! feature.
 //!
 //! Everything here is best-effort. chiba runs fine outside herdr, and a failure
 //! to write a breadcrumb must never be visible to someone who has never heard
@@ -92,6 +94,19 @@ pub fn mark_running(file: &Path) {
     if std::fs::create_dir_all(&dir).is_ok() {
         let _ = std::fs::write(marker_path(&dir, &pane), body);
     }
+}
+
+/// Whether exiting should drop this pane's breadcrumb.
+///
+/// Only a *deliberate* quit clears it. `should_quit` is set exclusively by the
+/// quit action; when herdr stops and the pty closes, the event loop unwinds
+/// through an `Err` instead and the flag stays false.
+///
+/// This distinction is the entire feature. Clearing unconditionally — the
+/// first version of this — deletes the breadcrumb on the one path that needs
+/// it, and nothing catches it short of restarting herdr for real.
+pub fn should_clear_on_exit(should_quit: bool, run_succeeded: bool) -> bool {
+    should_quit && run_succeeded
 }
 
 /// Forget this pane — chiba exited on purpose and should not be relaunched.
@@ -190,6 +205,19 @@ mod tests {
             Some(v) => unsafe { std::env::set_var("XDG_STATE_HOME", v) },
             None => unsafe { std::env::remove_var("XDG_STATE_HOME") },
         }
+    }
+
+    #[test]
+    fn only_a_deliberate_quit_drops_the_breadcrumb() {
+        // Pressed `q`: the pane is meant to stay closed.
+        assert!(should_clear_on_exit(true, true));
+        // herdr stopped and the pty died: the loop never set should_quit, and
+        // this is exactly the case the breadcrumb exists for.
+        assert!(!should_clear_on_exit(false, false));
+        // A read error after a quit was requested — don't strand a marker, but
+        // don't trust a half-finished exit either.
+        assert!(!should_clear_on_exit(true, false));
+        assert!(!should_clear_on_exit(false, true));
     }
 
     #[test]

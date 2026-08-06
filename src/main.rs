@@ -173,10 +173,18 @@ fn main() -> Result<()> {
     if app_state.mode != Mode::Welcome {
         eprintln!("chiba · {}", app_state.file_path.display());
     }
-    // A deliberate quit means "don't reopen me next time herdr restarts".
-    // Being killed by a restart leaves the marker in place, which is the whole
-    // point of it.
-    chiba::herdr::clear_running();
+    // Drop the herdr breadcrumb only on a *deliberate* quit.
+    //
+    // `should_quit` is set exclusively by the quit action; when herdr stops and
+    // the pty closes, the event loop unwinds through an `Err` from `read()`
+    // instead and the flag stays false. That distinction is the whole feature:
+    // a pane the user closed must stay closed, a pane herdr killed must come
+    // back. Clearing unconditionally — as this did at first — deletes the
+    // breadcrumb on the exact path that needs it, and the bug is invisible
+    // unless you restart herdr for real.
+    if chiba::herdr::should_clear_on_exit(app_state.should_quit, result.is_ok()) {
+        chiba::herdr::clear_running();
+    }
     result
 }
 

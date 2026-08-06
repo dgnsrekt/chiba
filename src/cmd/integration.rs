@@ -19,7 +19,7 @@ const RESTORE: &str = include_str!("../../assets/herdr/restore.sh");
 /// Bumped whenever the payload changes, so `status` can report "outdated" and
 /// tell the user to reinstall. Mirrors herdr's own `HERDR_INTEGRATION_VERSION`
 /// marker-comment scheme.
-const VERSION: u32 = 1;
+const VERSION: u32 = 2;
 const VERSION_MARKER: &str = "CHIBA_HERDR_PLUGIN_VERSION=";
 
 /// Where the plugin lives. Inside chiba's own config dir rather than herdr's,
