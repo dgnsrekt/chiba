@@ -6,6 +6,7 @@ use super::Store;
 use super::outcome::{
     ArchiveDeleteOutcome, ArchiveOutcome, Reconcile, StoreError, UnarchiveOutcome,
 };
+use crate::app::ArchiveMode;
 use crate::todo::{self, Task};
 
 /// Owns the archived (`done.md`) tasks and the lifecycle around loading them
@@ -142,6 +143,15 @@ impl Store {
     /// startup loader landed, or an external edit to `done.md` was picked up.
     /// Non-blocking. The caller (TUI) is responsible for any view recompute.
     pub fn poll_archive(&mut self) -> bool {
+        self.poll_archive_with(ArchiveMode::File)
+    }
+
+    /// As [`Store::poll_archive`], but a no-op under `in_place` — done.md is
+    /// never written in that mode, so re-reading it every tick is pure waste.
+    pub fn poll_archive_with(&mut self, mode: ArchiveMode) -> bool {
+        if mode == ArchiveMode::InPlace {
+            return false;
+        }
         let mut changed = false;
         if let Some(rx) = &self.archive.loader {
             match rx.try_recv() {
@@ -184,7 +194,7 @@ impl Store {
         true
     }
 
-    pub fn archive_completed(&mut self) -> ArchiveOutcome {
+    pub fn archive_completed(&mut self, mode: ArchiveMode) -> ArchiveOutcome {
         match self.reconcile() {
             Reconcile::Unchanged => {}
             other => return ArchiveOutcome::Aborted(other),
@@ -192,6 +202,14 @@ impl Store {
         let to_move: Vec<Task> = self.tasks.iter().filter(|t| t.done).cloned().collect();
         if to_move.is_empty() {
             return ArchiveOutcome::Nothing;
+        }
+        // In-place: the completed tasks are already where they belong. Bail
+        // before any I/O — no done.md, no todo.md rewrite, no undo entry,
+        // because nothing changed.
+        if mode == ArchiveMode::InPlace {
+            return ArchiveOutcome::InPlace {
+                count: to_move.len(),
+            };
         }
         // Read fresh so an external edit to done.md since startup isn't lost.
         let previous_archive_body = match self.read_archive_body() {
@@ -346,7 +364,7 @@ mod tests {
         write_md(&todo_path, raw).unwrap();
         let mut store = Store::open_sync(todo_path.clone(), md(raw), "2026-05-06".into());
         assert!(matches!(
-            store.archive_completed(),
+            store.archive_completed(ArchiveMode::File),
             ArchiveOutcome::Archived { count: 1 }
         ));
         let done = std::fs::read_to_string(dir.join("done.md")).unwrap();
@@ -365,7 +383,7 @@ mod tests {
         let raw = "x 2026-05-05 2026-05-01 fresh +work\n";
         write_md(&todo_path, raw).unwrap();
         let mut store = Store::open_sync(todo_path, md(raw), "2026-05-06".into());
-        store.archive_completed();
+        store.archive_completed(ArchiveMode::File);
         let done = std::fs::read_to_string(dir.join("done.md")).unwrap();
         assert!(done.contains("prior"));
         assert!(done.contains("fresh"));
@@ -375,7 +393,10 @@ mod tests {
     #[test]
     fn archive_nothing_when_no_completed() {
         let mut store = build_store("a\nb\n");
-        assert!(matches!(store.archive_completed(), ArchiveOutcome::Nothing));
+        assert!(matches!(
+            store.archive_completed(ArchiveMode::File),
+            ArchiveOutcome::Nothing
+        ));
     }
 
     fn wait_archive_loaded(store: &mut Store) {
@@ -422,7 +443,7 @@ mod tests {
         let raw = "x 2026-05-05 2026-05-01 done one\nx 2026-05-06 2026-05-01 done two\n";
         write_md(&todo_path, raw).unwrap();
         let mut store = Store::new(todo_path, md(raw), "2026-05-06".into());
-        store.archive_completed();
+        store.archive_completed(ArchiveMode::File);
         assert_eq!(store.archive.len(), 2);
         let _ = store.poll_archive();
         std::thread::sleep(Duration::from_millis(20));
@@ -499,7 +520,7 @@ mod tests {
         let mut store = Store::new(todo_path, md(raw), "2026-05-06".into());
         store.toggle_complete(0);
         assert_eq!(store.tasks().len(), 2);
-        store.archive_completed();
+        store.archive_completed(ArchiveMode::File);
         assert_eq!(store.tasks().len(), 1);
         assert_eq!(store.archive.len(), 1);
         store.unarchive(0);
@@ -578,5 +599,63 @@ mod tests {
         assert!(after.contains("# Archived"), "heading eaten:\n{after}");
         assert!(!after.contains("first"));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn in_place_archives_nothing_and_writes_nothing() {
+        let dir = dir_for("in-place");
+        let todo_path = dir.join("todo.md");
+        let raw = "(A) 2026-05-01 keep this +work\n\
+                   x 2026-05-05 2026-05-01 completed thing +work\n";
+        write_md(&todo_path, raw).unwrap();
+        let before = std::fs::read_to_string(&todo_path).unwrap();
+        let mut store = Store::open_sync(todo_path.clone(), md(raw), "2026-05-06".into());
+
+        let outcome = store.archive_completed(ArchiveMode::InPlace);
+
+        assert!(
+            matches!(outcome, ArchiveOutcome::InPlace { count: 1 }),
+            "got {outcome:?}",
+        );
+        assert_eq!(
+            std::fs::read_to_string(&todo_path).unwrap(),
+            before,
+            "todo.md must be untouched",
+        );
+        assert!(!dir.join("done.md").exists(), "done.md must not be created");
+        assert_eq!(
+            store.tasks().len(),
+            2,
+            "the completed task stays in the list"
+        );
+        assert!(
+            store.history.is_empty(),
+            "nothing happened, so nothing to undo"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn in_place_still_reports_nothing_when_there_is_nothing_done() {
+        let dir = dir_for("in-place-empty");
+        let todo_path = dir.join("todo.md");
+        write_md(&todo_path, "(A) 2026-05-01 open task\n").unwrap();
+        let mut store = Store::open_sync(
+            todo_path,
+            md("(A) 2026-05-01 open task\n"),
+            "2026-05-06".into(),
+        );
+        assert!(matches!(
+            store.archive_completed(ArchiveMode::InPlace),
+            ArchiveOutcome::Nothing
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn in_place_skips_polling_the_done_file() {
+        let mut store = build_store("a\n");
+        // Even with a real external edit pending, in-place never looks.
+        assert!(!store.poll_archive_with(ArchiveMode::InPlace));
     }
 }

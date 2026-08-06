@@ -230,12 +230,15 @@ impl App {
     }
 
     pub fn archive_completed(&mut self) {
-        match self.store.archive_completed() {
+        match self.store.archive_completed(self.prefs.archive_mode) {
             ArchiveOutcome::Archived { count } => {
                 self.flash(format!("archived {count}"));
                 self.recompute_visible();
                 self.clamp_cursor();
             }
+            ArchiveOutcome::InPlace { count } => self.flash(format!(
+                "archive_mode = in_place — {count} completed task(s) stay in the file (H to show)"
+            )),
             ArchiveOutcome::Nothing => self.flash("nothing to archive"),
             ArchiveOutcome::Aborted(r) => self.handle_reconcile_abort(r),
             ArchiveOutcome::Error(e) => self.flash(format!("archive failed: {e}")),

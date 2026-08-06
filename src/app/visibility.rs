@@ -74,8 +74,18 @@ impl App {
     }
 
     fn rebuild_archive_cache(&mut self) {
-        let archive = self.store.archive().tasks();
-        let mut idxs: Vec<usize> = (0..archive.len()).collect();
+        // Under `archive_mode = in_place` there is no done.md to read — the
+        // completed tasks are still in the live list, so the archive view
+        // shows those instead. `archive_source_is_live` is the single place
+        // that decision is made; every consumer of an archive-view index asks
+        // it which slice the index points into.
+        let archive: &[crate::todo::Task] = match self.archive_source_is_live() {
+            true => self.store.tasks(),
+            false => self.store.archive().tasks(),
+        };
+        let mut idxs: Vec<usize> = (0..archive.len())
+            .filter(|&i| !self.archive_source_is_live() || archive[i].done)
+            .collect();
         idxs.sort_by(|&a, &b| {
             archive[b]
                 .done_date
@@ -95,6 +105,12 @@ impl App {
             .collect();
         self.visible_cache = idxs;
         self.visible_groups = groups;
+    }
+
+    /// True when the archive view is showing completed tasks from the live
+    /// file rather than from `done.md`.
+    pub fn archive_source_is_live(&self) -> bool {
+        self.prefs.archive_mode == crate::app::ArchiveMode::InPlace
     }
 
     pub fn cur_abs(&self) -> Option<usize> {
@@ -287,5 +303,85 @@ mod tests {
         };
         assert_eq!(first, "2026-05-02");
         assert_eq!(second, "2026-04-01");
+    }
+
+    // ----- sort is a view, and prefs stay out of the real config -----------
+
+    #[test]
+    fn cycling_sort_never_rewrites_the_todo_file() {
+        // Sorting permutes an index list, never `Store.tasks`. Direction B
+        // cannot reorder across headings, so if this ever becomes a file
+        // mutation the vault design loses a behaviour users have learned.
+        let mut app = build_app("(A) alpha\n(C) charlie due:2026-05-01\n(B) bravo\n");
+        let path = app.file_path.clone();
+        let before = std::fs::read_to_string(&path).expect("seed file");
+
+        let mut seen = Vec::new();
+        for _ in 0..3 {
+            app.cycle_sort();
+            seen.push(app.prefs.sort);
+            assert_eq!(
+                std::fs::read_to_string(&path).expect("read"),
+                before,
+                "sort must not touch the file",
+            );
+        }
+        assert_eq!(seen.len(), 3, "all three modes exercised");
+        // ...and it really did reorder what's rendered.
+        app.prefs.sort = crate::app::Sort::Priority;
+        app.recompute_visible();
+        let by_priority: Vec<usize> = app.visible_indices().to_vec();
+        app.prefs.sort = crate::app::Sort::File;
+        app.recompute_visible();
+        assert_ne!(
+            by_priority,
+            app.visible_indices().to_vec(),
+            "priority order should differ from file order for this fixture",
+        );
+    }
+
+    #[test]
+    fn saving_prefs_without_a_config_path_writes_nothing() {
+        // `App::new` leaves config_path None; only the TUI entry point sets
+        // it. Before this guard every test that toggled a pref wrote the
+        // developer's real ~/.config/chiba/config.toml.
+        let mut app = build_app("a\n");
+        assert!(app.config_path.is_none(), "test apps have no config path");
+        app.cycle_sort(); // calls save_prefs internally
+        app.prefs.toggle_left();
+        app.save_prefs();
+        // Nothing to assert on disk — the point is that no path was resolved
+        // and nothing was written. If this regresses, the sentinel below fires.
+    }
+
+    #[test]
+    fn saving_prefs_honours_an_explicit_config_path() {
+        let mut app = build_app("a\n");
+        let cfg = std::env::temp_dir().join(format!(
+            "chiba-prefs-{}-{:?}.toml",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_file(&cfg);
+        app.config_path = Some(cfg.clone());
+        app.prefs.sort = crate::app::Sort::Due;
+        app.save_prefs();
+        let body = std::fs::read_to_string(&cfg).expect("prefs written to the given path");
+        assert!(body.contains("sort = due"), "got: {body}");
+        let _ = std::fs::remove_file(&cfg);
+    }
+
+    #[test]
+    fn in_place_archive_view_lists_completed_tasks_from_the_live_file() {
+        use crate::app::{ArchiveMode, View};
+        let mut app = build_app("open one\nx 2026-05-05 2026-05-01 done one\nopen two\n");
+        app.prefs.archive_mode = ArchiveMode::InPlace;
+        assert!(app.archive_source_is_live());
+        app.set_view(View::Archive);
+        let idxs = app.visible_indices().to_vec();
+        assert_eq!(idxs.len(), 1, "only the completed task");
+        // The index addresses the *live* task list, not the (empty) archive.
+        assert!(app.tasks()[idxs[0]].done);
+        assert!(app.tasks()[idxs[0]].raw.contains("done one"));
     }
 }

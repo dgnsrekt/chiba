@@ -46,8 +46,8 @@ pub use palette::CommandPaletteState;
 pub use prefs::{Layout, Prefs};
 pub use selection::Selection;
 pub use types::{
-    AUTOCOMPLETE_CAP, AddOutcome, Density, FLASH_TTL, Filter, LEADER_WINDOW, Mode, SavedFilter,
-    Sort, UNDO_LIMIT, View,
+    AUTOCOMPLETE_CAP, AddOutcome, ArchiveMode, Density, FLASH_TTL, Filter, LEADER_WINDOW, Mode,
+    SavedFilter, Sort, UNDO_LIMIT, View,
 };
 pub use visibility::GroupKey;
 
@@ -359,7 +359,19 @@ impl App {
     /// sees the problem inside the TUI (writing to stderr would smash the
     /// alt-screen).
     pub fn save_prefs(&mut self) {
-        if let Err(e) = self.prefs.save() {
+        // Save only to this app's own config path, and only if it has one.
+        //
+        // Failing closed is deliberate. `App::new` leaves `config_path` as
+        // `None` and only the TUI entry point fills it in, so every
+        // test-constructed app used to fall through to `Config::save`, which
+        // resolves the XDG path unconditionally — meaning `cargo test` rewrote
+        // the developer's real `~/.config/chiba/config.toml` with whatever
+        // state a fixture happened to set. Writing nothing is always the safer
+        // half of that trade.
+        let Some(path) = self.config_path.clone() else {
+            return;
+        };
+        if let Err(e) = self.prefs.save_to(Some(&path)) {
             self.flash(format!("config save failed: {e}"));
         }
     }
@@ -468,6 +480,7 @@ impl App {
     pub fn cur_task(&self) -> Option<&Task> {
         let i = self.cur_abs()?;
         match self.view {
+            View::Archive if self.archive_source_is_live() => self.store.tasks().get(i),
             View::Archive => self.store.archive().tasks().get(i),
             _ => self.store.tasks().get(i),
         }
@@ -477,7 +490,7 @@ impl App {
     /// true when the visible archive changed, so the caller redraws. Refreshes
     /// the visible cache when the Archive view is active.
     pub fn poll_archive(&mut self) -> bool {
-        let changed = self.store.poll_archive();
+        let changed = self.store.poll_archive_with(self.prefs.archive_mode);
         if changed && matches!(self.view, View::Archive) {
             self.recompute_visible();
             self.clamp_cursor();

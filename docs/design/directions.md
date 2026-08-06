@@ -128,10 +128,13 @@ retrofit:
 
 1. **Fence-aware parsing** (~20 lines) — never treat `- [ ]` inside a code fence
    as a task. B requires it; A corrupts code blocks without it.
-2. **Sort is a view, not a mutation.** A *can* permute lines on sort; B can't,
-   because tasks belong to headings. Don't teach the muscle memory B has to take
-   away.
-3. **`archive_mode = in_place` supported in A**, even if `done.md` stays the
+2. **Sort is a view, not a mutation.** ✅ *Already true* — `sort_by_prefs`
+   permutes an index list (`&mut [usize]`) against `&[Task]`, and the todo file
+   is never written. This hedge cost nothing because tuxedo was already built
+   this way; it just needed a regression test to keep it that way. B can't
+   reorder across headings, so the day this becomes a file mutation is the day
+   B stops being reachable.
+3. ✅ **`archive_mode = in_place` supported in A**, even if `done.md` stays the
    default. It's B's default, it's a filter rather than a move, and it's what
    markdown users already do.
 

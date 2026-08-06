@@ -78,6 +78,10 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         ("", Some("".into())),
         ("BEHAVIOR", None),
         (
+            "  archive mode",
+            Some(format!("{}  (config.toml)", app.prefs.archive_mode)),
+        ),
+        (
             "  default sort",
             Some(format!("{} (s to cycle)", app.sort_label())),
         ),

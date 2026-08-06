@@ -742,6 +742,22 @@ edits herdr's own config.
 list is a closed set of AI agents that chiba can't join without patching herdr;
 its plugin system is the part open to third parties.*
 
+### Where completed tasks go
+
+```toml
+archive_mode = file       # default: `A` moves them to a sibling done.md
+archive_mode = in_place   # they stay in todo.md, hidden by the done filter
+```
+
+Under `in_place`, `A` writes nothing and says so — completed tasks keep their
+`- [x]` line where it is, under the heading that gave it meaning. `H` shows
+them in the main list; `a` lists them on their own, sourced from your file
+rather than from `done.md`.
+
+This is direction B's default, offered now so adopting the vault design later
+isn't a change in behaviour you have to relearn. `file` stays the default and
+behaves exactly as before.
+
 ## Staying current with tuxedo
 
 chiba is a fork, so upstream's fixes are chiba's fixes. Two scripts keep that

@@ -13,13 +13,14 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::app::WeekStart;
-use crate::app::{Density, Sort};
+use crate::app::{ArchiveMode, Density, Sort};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Config {
     pub theme: Option<String>,
     pub density: Option<Density>,
     pub sort: Option<Sort>,
+    pub archive_mode: Option<ArchiveMode>,
     pub show_left: Option<bool>,
     pub show_right: Option<bool>,
     pub show_line_num: Option<bool>,
@@ -143,6 +144,7 @@ fn parse(s: &str) -> Config {
             "theme" => c.theme = Some(v.to_string()),
             "density" => c.density = v.parse().ok(),
             "sort" => c.sort = v.parse().ok(),
+            "archive_mode" => c.archive_mode = v.parse().ok(),
             "show_left" => c.show_left = parse_bool(v),
             "show_right" => c.show_right = parse_bool(v),
             "show_line_num" => c.show_line_num = parse_bool(v),
@@ -201,6 +203,9 @@ fn serialize(c: &Config) -> String {
     }
     if let Some(v) = c.sort {
         let _ = writeln!(out, "sort = {v}");
+    }
+    if let Some(v) = c.archive_mode {
+        let _ = writeln!(out, "archive_mode = {v}");
     }
     if let Some(v) = c.show_left {
         let _ = writeln!(out, "show_left = {v}");
@@ -268,6 +273,7 @@ mod tests {
             theme: Some("Nord".into()),
             density: Some(Density::Cozy),
             sort: Some(Sort::Due),
+            archive_mode: Some(ArchiveMode::InPlace),
             show_left: Some(false),
             show_right: Some(true),
             show_line_num: Some(false),
@@ -427,6 +433,7 @@ mod tests {
             theme: Some("Dawn".into()),
             density: Some(Density::Compact),
             sort: Some(Sort::File),
+            archive_mode: Some(ArchiveMode::File),
             show_left: Some(false),
             show_right: Some(false),
             show_line_num: Some(true),

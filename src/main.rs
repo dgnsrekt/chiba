@@ -1108,15 +1108,26 @@ fn apply_action(app: &mut App, action: Action) {
     // through to the normal handler below.
     if app.view() == View::Archive {
         match action {
+            // Under `archive_mode = in_place` the archive view lists live
+            // tasks, so these indices address `store.tasks()` and the
+            // done.md-specific operations would be wrong (and out of range).
             Action::ToggleComplete => {
                 if let Some(idx) = app.cur_abs() {
-                    app.unarchive(idx);
+                    if app.archive_source_is_live() {
+                        app.toggle_complete(idx);
+                    } else {
+                        app.unarchive(idx);
+                    }
                 }
                 return;
             }
             Action::Delete => {
                 if let Some(idx) = app.cur_abs() {
-                    app.archive_delete(idx);
+                    if app.archive_source_is_live() {
+                        app.delete(idx);
+                    } else {
+                        app.archive_delete(idx);
+                    }
                 }
                 return;
             }

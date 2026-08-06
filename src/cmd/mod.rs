@@ -854,7 +854,11 @@ fn cmd_archive(store: &mut Store, json: bool) -> i32 {
         .filter(|t| t.done)
         .map(|t| t.raw.clone())
         .collect();
-    match store.archive_completed() {
+    // The CLI has no Prefs, so read the mode straight from the config file.
+    let mode = crate::config::Config::load()
+        .archive_mode
+        .unwrap_or(crate::app::ArchiveMode::File);
+    match store.archive_completed(mode) {
         ArchiveOutcome::Archived { count } => {
             if json {
                 println!("{{\"ok\":true,\"action\":\"archive\",\"count\":{count}}}");
@@ -864,6 +868,10 @@ fn cmd_archive(store: &mut Store, json: bool) -> i32 {
                 }
                 println!("TODO: {path} archived.");
             }
+            0
+        }
+        ArchiveOutcome::InPlace { count } => {
+            println!("archive_mode = in_place; {count} completed task(s) left in place");
             0
         }
         ArchiveOutcome::Nothing => {

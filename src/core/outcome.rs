@@ -141,8 +141,16 @@ pub enum BulkDeleteOutcome {
 
 #[derive(Debug)]
 pub enum ArchiveOutcome {
-    Archived { count: usize },
+    Archived {
+        count: usize,
+    },
     Nothing,
+    /// `archive_mode = in_place`: completed tasks stay in the todo file and
+    /// nothing was written. Distinct from `Nothing`, which means there was
+    /// nothing to archive in the first place.
+    InPlace {
+        count: usize,
+    },
     Aborted(Reconcile),
     Error(StoreError),
 }

@@ -64,6 +64,49 @@ impl View {
     }
 }
 
+/// Where completed tasks go when the user presses `A`.
+///
+/// `File` is tuxedo's behaviour and stays the default: move them to a sibling
+/// `done.md`. `InPlace` leaves them in `todo.md` and relies on the existing
+/// done-task filter to hide them.
+///
+/// `InPlace` exists to keep direction B reachable. In a vault, pulling a task
+/// out of its heading loses the context that made it meaningful, so B's default
+/// has to be in-place; offering it now means adopting B later isn't a
+/// behaviour change users have to relearn.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArchiveMode {
+    File,
+    InPlace,
+}
+
+impl ArchiveMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ArchiveMode::File => "file",
+            ArchiveMode::InPlace => "in_place",
+        }
+    }
+}
+
+impl fmt::Display for ArchiveMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for ArchiveMode {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "file" => Ok(ArchiveMode::File),
+            // Accept the hyphenated spelling too; people will type it.
+            "in_place" | "in-place" | "inplace" => Ok(ArchiveMode::InPlace),
+            _ => Err(()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Sort {
     Priority,

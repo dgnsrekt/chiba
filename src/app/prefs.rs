@@ -1,6 +1,7 @@
 use std::io;
+use std::path::Path;
 
-use super::types::{Density, Sort};
+use super::types::{ArchiveMode, Density, Sort};
 use crate::app::WeekStart;
 use crate::config::Config;
 use crate::theme::{self, Theme};
@@ -32,6 +33,7 @@ pub struct Prefs {
     theme_idx: usize,
     pub density: Density,
     pub sort: Sort,
+    pub archive_mode: ArchiveMode,
     pub layout: Layout,
     pub show_done: bool,
     pub show_future: bool,
@@ -52,6 +54,8 @@ impl Prefs {
             theme_idx,
             density: cfg.density.unwrap_or(Density::Comfortable),
             sort: cfg.sort.unwrap_or(Sort::Priority),
+            // `File` stays the default: existing files and habits are unaffected.
+            archive_mode: cfg.archive_mode.unwrap_or(ArchiveMode::File),
             layout: Layout {
                 left: cfg.show_left.unwrap_or(true),
                 right: cfg.show_right.unwrap_or(true),
@@ -140,15 +144,30 @@ impl Prefs {
     /// can flash it (writing to stderr from inside the alt-screen would
     /// corrupt the TUI). Saving is best-effort — callers that don't care
     /// about reporting can `let _ = prefs.save();`.
+    pub fn save(&self) -> io::Result<()> {
+        self.save_to(None)
+    }
+
+    /// Persist to `path`, or to the XDG config path when `None`.
     ///
     /// Loads the on-disk config first so non-pref fields (like
     /// `share_token` / `share_port`, owned by the capture server) are
     /// preserved across pref toggles.
-    pub fn save(&self) -> io::Result<()> {
-        let mut cfg = Config::load();
+    ///
+    /// The explicit path exists so tests can't write the developer's real
+    /// config. They could, and did: any test that toggles a pref reached
+    /// `Config::save`, which resolves the XDG path unconditionally, so
+    /// `cargo test` quietly rewrote `~/.config/chiba/config.toml` with
+    /// whatever state a snapshot fixture happened to set.
+    pub fn save_to(&self, path: Option<&Path>) -> io::Result<()> {
+        let mut cfg = match path {
+            Some(p) => Config::load_from(p),
+            None => Config::load(),
+        };
         cfg.theme = Some(self.theme().name.to_string());
         cfg.density = Some(self.density);
         cfg.sort = Some(self.sort);
+        cfg.archive_mode = Some(self.archive_mode);
         cfg.show_left = Some(self.layout.left);
         cfg.show_right = Some(self.layout.right);
         cfg.show_line_num = Some(self.layout.line_num);
@@ -156,6 +175,9 @@ impl Prefs {
         cfg.show_done = Some(self.show_done);
         cfg.show_future = Some(self.show_future);
         cfg.hidden_keys = self.hidden_keys.clone();
-        cfg.save()
+        match path {
+            Some(p) => cfg.save_to(p),
+            None => cfg.save(),
+        }
     }
 }

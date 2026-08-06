@@ -23,9 +23,16 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         header_area,
         theme,
         header::HeaderProps {
-            title: Some("done.md"),
-            // file: "completed",
-            count: app.archive().len(),
+            // In-place mode has no done.md; the view is the completed tasks
+            // still living in the todo file.
+            title: Some(match app.archive_source_is_live() {
+                true => "completed",
+                false => "done.md",
+            }),
+            count: match app.archive_source_is_live() {
+                true => app.visible_indices().len(),
+                false => app.archive().len(),
+            },
             sort: "completion-date",
             filter: None,
         },
