@@ -43,9 +43,5 @@ description = "Report how far behind webstonehq/tuxedo this fork has drifted."
 run = "./scripts/upstream-status.sh"
 
 [tasks.upstream_merge]
-description = "Merge upstream/main, then prove the markdown layer still holds."
-run = [
-    "git fetch --quiet upstream",
-    "git merge --no-edit upstream/main",
-    "cargo test --locked",
-]
+description = "Merge upstream/main, then run tests and the rename audit."
+run = "./scripts/upstream-merge.sh"

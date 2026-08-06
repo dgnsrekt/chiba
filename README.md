@@ -718,6 +718,23 @@ plain `cargo` commands if you don't use [mise](https://mise.jdx.dev/).
 - [todo.txt](http://todotxt.org/) by Gina Trapani — the task grammar chiba still uses inside each checkbox.
 - [ratatui](https://ratatui.rs/) and [crossterm](https://github.com/crossterm-rs/crossterm) — the rendering and terminal-input crates chiba is built on.
 
+## Staying current with tuxedo
+
+chiba is a fork, so upstream's fixes are chiba's fixes. Two scripts keep that
+from turning into a project:
+
+```sh
+./scripts/upstream-status.sh   # how far behind, and which files will conflict
+./scripts/upstream-merge.sh    # merge, test, then audit the merge
+```
+
+The merge script runs `scripts/rename-audit.py` on whatever just landed. A
+fork rename is safe for identifiers and paths and *unsafe* for every sentence
+that explains the fork — "recurrence is a chiba feature" was one such line,
+and it compiled, passed 499 tests, and read as authoritative while being
+false. The audit lists renamed prose so it gets read by a human once, at the
+only moment it's cheap.
+
 ## Design
 
 How chiba's document model works and why, plus the fork's decision record:

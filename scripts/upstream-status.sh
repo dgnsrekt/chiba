@@ -36,5 +36,5 @@ git diff --name-only HEAD...upstream/main -- src/ \
     || echo "  none — should merge cleanly"
 
 echo
-echo "To merge and verify:  mise run upstream_merge"
-echo "                 or:  git merge upstream/main && cargo test"
+echo "To merge:  ./scripts/upstream-merge.sh   (merges, tests, runs the"
+echo "                                          rename audit on what landed)"
