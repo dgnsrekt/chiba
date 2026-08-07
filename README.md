@@ -2,7 +2,21 @@
 
 **Same man, different mask.**
 
-![tuxedo's bowtie and chiba's rose, side by side](docs/banner.svg)
+![chiba — a caped figure throwing a rose, rendered in dithered ASCII](docs/hero.jpg)
+
+```text
+~/notes $ chiba
+
+   ██████ ██   ██ ██ ██████   █████
+  ██      ██   ██ ██ ██   ██ ██   ██
+  ██      ███████ ██ ██████  ███████
+  ██      ██   ██ ██ ██   ██ ██   ██
+   ██████ ██   ██ ██ ██████  ██   ██
+
+  - [ ] a markdown-native fork of tuxedo          @terminal +rust
+  - [x] fast, keyboard-driven, single binary      due:now
+  - [ ] the bowtie gives way to the rose ────────➤ ✿
+```
 
 A fast, keyboard-driven terminal UI for markdown task lists.
 Vim-style bindings, atomic writes, instant external-edit detection, and five
@@ -15,6 +29,8 @@ file, and it never destroys the headings, prose, or code fences around them.
 
 Tuxedo Mask is the disguise; Mamoru Chiba is the man underneath. tuxedo wears
 todo.txt, chiba wears markdown, and the bowtie gives way to the rose he throws.
+
+![tuxedo's bowtie and chiba's rose, side by side](docs/banner.svg)
 
 Not released yet — private while it gets a real shakedown. Build from a clone:
 
@@ -711,6 +727,8 @@ mise run test     # cargo test --locked
 
 CI runs all three on every push and pull request. Tasks are also runnable as
 plain `cargo` commands if you don't use [mise](https://mise.jdx.dev/).
+
+![a long-stemmed rose scattering petals across the terminal](docs/rose.jpg)
 
 ## Acknowledgments
 
