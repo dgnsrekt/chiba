@@ -32,7 +32,13 @@ todo.txt, chiba wears markdown, and the bowtie gives way to the rose he throws.
 
 ![tuxedo's bowtie and chiba's rose, side by side](docs/banner.svg)
 
-Not released yet — private while it gets a real shakedown. Build from a clone:
+No tagged release yet, so install from source:
+
+```sh
+cargo install --git https://github.com/dgnsrekt/chiba
+```
+
+Or from a clone, if you want to hack on it:
 
 ```sh
 cargo install --path .
