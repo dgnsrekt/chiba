@@ -1,9 +1,3 @@
-# chiba
-
-**Same man, different mask.**
-
-![chiba — a caped figure throwing a rose, rendered in dithered ASCII](docs/hero.jpg)
-
 ```text
 ~/notes $ chiba
 
@@ -17,6 +11,11 @@
   - [x] fast, keyboard-driven, single binary      due:now
   - [ ] the bowtie gives way to the rose ────────➤ ✿
 ```
+
+
+**Same man, different mask.**
+
+![chiba — a caped figure throwing a rose, rendered in dithered ASCII](docs/hero.jpg)
 
 A fast, keyboard-driven terminal UI for markdown task lists.
 Vim-style bindings, atomic writes, instant external-edit detection, and five
