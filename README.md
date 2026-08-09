@@ -154,19 +154,7 @@ another theme is skipped with a warning at startup.
 
 ## Install
 
-### Homebrew (macOS, Linux)
-
-```sh
-brew install chiba
-```
-
-### Prebuilt binaries
-
-Download the archive for your platform from the [latest release](https://github.com/dgnsrekt/chiba/releases/latest) and put `chiba` on your `PATH`.
-
-Targets: `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-apple-darwin`, `aarch64-apple-darwin`, `x86_64-pc-windows-msvc`. Each archive ships with a `.sha256` checksum.
-
-### From source
+There's no tagged release yet, so chiba installs from source:
 
 ```sh
 cargo install --git https://github.com/dgnsrekt/chiba
@@ -182,6 +170,8 @@ cargo build --release
 ```
 
 Requires the Rust 2024 edition (recent stable toolchain).
+
+Homebrew and prebuilt binaries aren't available yet.
 
 ## Usage
 
