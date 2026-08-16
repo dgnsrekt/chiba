@@ -32,7 +32,12 @@ def main():
     files = [f for f in files if f.endswith(".rs")]
 
     if since:
-        touched = set(git("diff", "--name-only", f"{since}..upstream/main").stdout.split())
+        # Three dots, not two. On a fork, `since..upstream/main` lists every
+        # file where the two differ — which is all of them — so the report
+        # drowned in ~100 already-reviewed lines on the first real merge.
+        # `since...upstream/main` is "what upstream changed since the merge
+        # base", which is the only thing a post-merge audit cares about.
+        touched = set(git("diff", "--name-only", f"{since}...upstream/main").stdout.split())
         files = [f for f in files if f in touched]
         if not files:
             print(f"No src/ files changed upstream since {since} — nothing to audit.")
